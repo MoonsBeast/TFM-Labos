@@ -1,12 +1,10 @@
-version: '3.8'
-
 services:
   ubuntu-client:
+
     build:
       context: ..
       dockerfile: docker/Dockerfile
     environment:
-      - AUTO_RUN=true
-      - TARGET_IP=0.0.0.0
-      - TIME_LAPSE=5
-    tty: true
+      AUTORUN: true
+      REQUEST_TARGET: 0.0.0.0
+      SLEEP_TIME: 5
