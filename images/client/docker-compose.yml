@@ -1,9 +1,8 @@
 services:
   ubuntu-client:
-
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile
+    build: .
+    container_name: ubuntu_client
+    image: ubuntu_client
     environment:
       AUTORUN: true
       REQUEST_TARGET: 0.0.0.0
