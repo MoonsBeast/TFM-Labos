@@ -1,0 +1,18 @@
+services:
+  dns:
+    restart: always
+    image: strm/dnsmasq
+    container_name: dns_server
+    volumes:
+      - ./config/dnsmasq.conf:/etc/dnsmasq.conf
+    ports:
+      - "5353:53/udp"
+      - "5353:53/tcp"
+    cap_add:
+      - NET_ADMIN
+    networks:
+      - dns_network
+
+networks:
+  dns_network:
+    driver: bridge
