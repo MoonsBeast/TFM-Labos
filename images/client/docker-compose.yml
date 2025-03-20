@@ -1,9 +1,0 @@
-services:
-  ubuntu-client:
-    build: .
-    container_name: ubuntu_client
-    image: ubuntu_client
-    environment:
-      AUTORUN: true
-      REQUEST_TARGET: 0.0.0.0
-      SLEEP_TIME: 5
