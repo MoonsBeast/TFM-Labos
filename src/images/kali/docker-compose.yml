@@ -1,0 +1,8 @@
+services:
+  kali:
+    image: kalilinux/kali-rolling
+    container_name: kali_container
+    stdin_open: true
+    tty: true
+    volumes:
+      - ./kali_files:/kali_files

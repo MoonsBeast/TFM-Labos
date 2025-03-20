@@ -1,0 +1,10 @@
+services:
+  fastapi_evil_web_server:
+    build: .
+    container_name: fastapi_evil_web_server
+    image: fastapi_evil_web_server
+    command: uvicorn main:app --reload --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./server:/server
