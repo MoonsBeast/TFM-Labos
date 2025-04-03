@@ -10,7 +10,7 @@
 git clone https://github.com/MoonsBeast/TFM-Labos
 ```
 
-3. Acces folder:
+3. Access folder:
 
 ```
 cd TFM-Labos

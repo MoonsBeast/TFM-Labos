@@ -1,0 +1,4 @@
+venv
+build
+TFM_Labos.egg-info
+src/__pycache__

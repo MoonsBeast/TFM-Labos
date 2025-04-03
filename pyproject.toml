@@ -8,4 +8,4 @@ find = {}
 [project]
 name = "TFM-Labos"
 version = "0.1.0"
-dependencies = ["rich", "typer", "InquirerPy"]
+dependencies = ["rich", "typer", "InquirerPy", "pyyaml"]
