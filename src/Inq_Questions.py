@@ -1,7 +1,8 @@
 import os
+from Conductor import Mode
 
 def modes(_):
-    return ["Compose", "Build", "Compose and Build"]
+    return [mode.value for mode in Mode]
 
 def images(_):
     path = 'src/images'

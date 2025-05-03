@@ -4,6 +4,6 @@ services:
     container_name: ubuntu_client
     image: ubuntu_client
     environment:
-      AUTORUN: true
-      REQUEST_TARGET: 0.0.0.0
-      SLEEP_TIME: 5
+      AUTORUN: <AUTORUN>
+      REQUEST_TARGET: <REQUEST_TARGET>
+      SLEEP_TIME: <SLEEP_TIME>
