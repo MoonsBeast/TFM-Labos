@@ -77,14 +77,38 @@ def file(path: str =typer.Option("./images.yml", help="Path to the YAML file")):
 
 @app.command()
 def gui(
-    num_terminals: int = typer.Option(1, "--terminals", "-t", help="Número de terminales a crear"),
-    commands: list[str] = typer.Option(None, "--commands", "-c", help="Comandos a ejecutar en cada terminal")
+    path: str = typer.Option("./lab_build", help="Path to the lab folder"),
+    images: list[str] = typer.Option(None, "--image", "-i", help="Images to to attach to the terminal")
 ):
     """
     Open multiple terminal windows and connect to the images.
     """
     import os
     import subprocess
+    from Yalm_handler import Yalm_handler as YML
+    from pathlib import Path
+
+    # Get container names from docker-compose.yml
+    compose_path = Path(path) / "docker-compose.yml"
+    if not compose_path.exists():
+        typer.echo(f"Error: docker-compose.yml not found in {path}")
+        return
+
+    compose_data = YML.read(str(compose_path))
+    if not compose_data or 'services' not in compose_data:
+        typer.echo("Error: Invalid docker-compose.yml file")
+        return
+
+    # Get container names for selected images or all services if no images specified
+    container_names = []
+    for service_name, service_data in compose_data['services'].items():
+        if images is None or any(img in service_name.lower() for img in images):
+            if 'container_name' in service_data:
+                container_names.append(service_data['container_name'])
+
+    if not container_names:
+        typer.echo("No matching containers found")
+        return
 
     # Configurar el comando base según el sistema operativo
     if os.name == 'nt':
@@ -98,23 +122,17 @@ def gui(
         else:
             terminal_cmd = ['x-terminal-emulator', '-e']
 
-    # Abrir las terminales y ejecutar los comandos
-    for i in range(num_terminals):
+    # Abrir las terminales y ejecutar docker attach para cada contenedor
+    for container_name in container_names:
         cmd = terminal_cmd.copy()
+        docker_cmd = f"docker attach {container_name}"
         
-        if commands and commands[i]:
-            if os.name == 'nt':
-                # En Windows, añadir el comando y mantener la terminal abierta
-                final_command = f"{commands[i]}; clear"
-                cmd.extend(['-Command', final_command])
-            else:
-                # En Unix, el comando se ejecuta y mantiene la terminal abierta
-                final_command = f"{commands[i]}; clear"
-                cmd.extend(['bash', '-c', final_command])
+        if os.name == 'nt':
+            # En Windows, añadir el comando y mantener la terminal abierta
+            cmd.extend(['-Command', docker_cmd])
         else:
-            # Si no hay comando, asegurar que la terminal permanezca abierta
-            if os.name != 'nt':  # En Windows, -NoExit ya mantiene la terminal abierta
-                cmd.extend(['bash'])
+            # En Unix, el comando se ejecuta y mantiene la terminal abierta
+            cmd.extend(['bash', '-c', docker_cmd])
         
         # Usar subprocess.Popen para no bloquear mientras se abren las terminales
         if os.name == 'nt':
