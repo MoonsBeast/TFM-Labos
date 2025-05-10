@@ -5,6 +5,6 @@ WORKDIR /server
 
 RUN apt-get update && rm -rf /var/lib/apt/lists/* 
 
-COPY ./server /server
+COPY ./containers/evil_web_server/server /server
 
 RUN pip install --no-cache-dir --upgrade -r requirements.txt

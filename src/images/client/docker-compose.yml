@@ -1,9 +1,0 @@
-services:
-  ubuntu-client:
-    build: .
-    container_name: ubuntu_client
-    image: ubuntu_client
-    environment:
-      AUTORUN: <AUTORUN>
-      REQUEST_TARGET: <REQUEST_TARGET>
-      SLEEP_TIME: <SLEEP_TIME>

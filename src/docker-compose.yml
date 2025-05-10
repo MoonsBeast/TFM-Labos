@@ -1,0 +1,51 @@
+services:
+  web_server:
+    build: 
+      context: .
+      dockerfile: ./containers/web_server/Dockerfile
+    image: fastapi_web_server
+    command: uvicorn main:app --reload --host 0.0.0.0 --port ${WEB_SERVER_PORT}
+    volumes:
+      - ./containers/web_server/server:/server
+
+  evil_web_server:
+    build:
+      context: .
+      dockerfile: ./containers/evil_web_server/Dockerfile
+    image: fastapi_evil_web_server
+    command: uvicorn main:app --reload --host 0.0.0.0 --port ${EVIL_WEB_SERVER_PORT}
+    volumes:
+      - ./containers/evil_web_server/server:/server
+
+  parrot:
+    image: parrotsec/core:latest
+    stdin_open: true
+    tty: true
+    volumes:
+      - ./containers/parrot/parrot_files:/parrot_files
+
+  kali:
+    image: kalilinux/kali-rolling
+    container_name: kali_container
+    stdin_open: true
+    tty: true
+    volumes:
+      - ./containers/kali/kali_files:/kali_files
+
+  dns:
+    restart: always
+    image: strm/dnsmasq
+    volumes:
+      - ./containers/dns/config/dnsmasq.conf:/etc/dnsmasq.conf
+    cap_add:
+      - NET_ADMIN
+
+  ubuntu_client:
+    build:
+      context: .
+      dockerfile: ./containers/client/Dockerfile
+    image: ubuntu_client
+    environment:
+      AUTORUN: ${CLIENT_AUTORUN}
+      REQUEST_TARGET: ${CLIENT_REQUEST_TARGET}
+      SLEEP_TIME: ${CLIENT_SLEEP_TIME}

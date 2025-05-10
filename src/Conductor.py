@@ -12,17 +12,7 @@ class Mode(Enum):
     BUILD = "build"
     COMPOSE_AND_BUILD = "compose_build"
 
-class ExecInfo:
-    def __init__(self, data:dict={}):
-        
-        if data != {}:
-            self.mode = data["mode"]
-            self.images = data["images"]
-            self.templates = data["templates"]
-        else:
-            self.mode = ""
-            self.images = []
-            self.templates = {}
+
 
 class Conductor:
     def __init__(self, file_path: str = None, build_path: str = None, info: ExecInfo = None):
