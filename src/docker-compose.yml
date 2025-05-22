@@ -4,48 +4,79 @@ services:
       context: .
       dockerfile: ./containers/web_server/Dockerfile
     image: fastapi_web_server
+    restart: unless-stopped
     command: uvicorn main:app --reload --host 0.0.0.0 --port ${WEB_SERVER_PORT}
     volumes:
       - ./containers/web_server/server:/server
+    dns:
+      - ${DNS_IP}
+    networks:
+      internal_network:
+        ipv4_address: ${WEB_SERVER_IP}
 
   evil_web_server:
     build:
       context: .
       dockerfile: ./containers/evil_web_server/Dockerfile
     image: fastapi_evil_web_server
+    restart: unless-stopped
     command: uvicorn main:app --reload --host 0.0.0.0 --port ${EVIL_WEB_SERVER_PORT}
     volumes:
       - ./containers/evil_web_server/server:/server
-
-  parrot:
-    image: parrotsec/core:latest
-    stdin_open: true
-    tty: true
-    volumes:
-      - ./containers/parrot/parrot_files:/parrot_files
-
-  kali:
-    image: kalilinux/kali-rolling
-    container_name: kali_container
-    stdin_open: true
-    tty: true
-    volumes:
-      - ./containers/kali/kali_files:/kali_files
+    dns:
+      - ${DNS_IP}
+    networks:
+      internal_network:
+        ipv4_address: ${EVIL_WEB_SERVER_IP}
 
   dns:
-    restart: always
     image: strm/dnsmasq
+    restart: always
     volumes:
       - ./containers/dns/config/dnsmasq.conf:/etc/dnsmasq.conf
     cap_add:
       - NET_ADMIN
+    networks:
+      internal_network:
+        ipv4_address: ${DNS_IP}
 
-  ubuntu_client:
+  http_requester:
     build:
       context: .
-      dockerfile: ./containers/client/Dockerfile
-    image: ubuntu_client
+      dockerfile: ./containers/requester/Dockerfile
+    image: http_requester
+    restart: unless-stopped
     environment:
-      AUTORUN: ${CLIENT_AUTORUN}
-      REQUEST_TARGET: ${CLIENT_REQUEST_TARGET}
-      SLEEP_TIME: ${CLIENT_SLEEP_TIME}
+      REQUEST_TARGET: ${REQUESTER_TARGET}
+      SLEEP_TIME: ${REQUESTER_SLEEP_TIME}
+    dns:
+      - ${DNS_IP}
+    networks:
+      internal_network:
+        ipv4_address: ${REQUESTER_IP}
+  
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: portainer
+    restart: always
+    ports:
+      - "9000:9000"
+      - "9443:9443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+
+volumes:
+  portainer_data:
+
+# Definición de la red
+networks:
+  internal_network:
+    driver: macvlan
+    driver_opts:
+      parent: ${PARENT_INTERFACE}
+    ipam:
+      driver: default
+      config:
+        - subnet: ${SUBNET}/${SUBNET_MASK}
+          gateway: ${GATEWAY}

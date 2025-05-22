@@ -1,1 +1,0 @@
-sudo docker exec -it parrot_container /bin/bash
