@@ -1,34 +1,63 @@
 # TFM-Labos
 
-## Instalation
+## General instalation
 
-1. Install Python 3, Docker and Docker-compose
+- Python 3 (Lab Docs)
+- Docker and Docker-compose (Lab enviroments)
 
-2. Clone the repository:
+## Run the labs
+
+1. Clone the repository:
 
 ```
 git clone https://github.com/MoonsBeast/TFM-Labos
 ```
 
-3. Access folder:
+2. Access folder:
 
 ```
 cd TFM-Labos
 ```
 
-4. Create a virtual env (optional):
+3. Create a virtual env (optional):
 
 ```
 python3 -m venv venv
 source venv/bin/activate
 ```
 
-5. Install requirements
+4. Run the lab
 
 ```
-pip install .
+# Compose up (if no service is specified all are activated)
+docker-compose -f src/docker-compose.yml up -d [services]
+
+# Compose down
+docker-compose -f src/docker-compose.yml down
 ```
 
 ---
 
-## Usage
+# Lab Docs
+
+1. Install mkdocs and mkdocs-material
+
+```
+pip install mkdocs mkdocs-material
+```
+
+2. Navigate to src
+
+```
+cd src
+```
+
+3. Serve the documentation
+
+```
+mkdocs serve
+```
+
+4. Go to the website (`localhost:8000`)
+
+5. Enjoy and learn!
