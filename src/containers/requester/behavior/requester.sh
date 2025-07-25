@@ -2,18 +2,18 @@
 
 : "${TARGET_URL:=http://127.0.0.1:8080}"
 
-echo "[*] Haciendo peticiones HTTP a: $TARGET_URL"
+echo "[*] Making HTTP requests to: $TARGET_URL"
 while true; do
 
     TIMESTAMP="[$(date '+%Y-%m-%d %H:%M:%S')]"
 
-    echo "$TIMESTAMP - Iniciando petición GET a $REQUEST_TARGET"
+    echo "$TIMESTAMP - Starting GET request to $REQUEST_TARGET"
 
-    # Crear archivos temporales para la respuesta y las métricas
+    # Create temporary files for response and metrics
     RESPONSE_FILE=$(mktemp)
     METRICS_FILE=$(mktemp)
 
-    # Realizar la petición y guardar la respuesta y métricas por separado
+    # Make the request and save response and metrics separately
     curl -s "$REQUEST_TARGET" \
         -H "Accept: application/json" \
         -H "User-Agent: Custom-Client/1.0" \
@@ -32,7 +32,7 @@ while true; do
         "url_effective": "%{url_effective}"
     }' > "$METRICS_FILE"
 
-    echo "$TIMESTAMP - Estadísticas de la petición:"
+    echo "$TIMESTAMP - Request statistics:"
     cat "$METRICS_FILE" | jq .
 
     echo "Response body:"
@@ -40,10 +40,10 @@ while true; do
 
     echo "------------------------------------------------------------------------------"
 
-    # Limpiar archivos temporales
+    # Clean up temporary files
     rm -f "$RESPONSE_FILE" "$METRICS_FILE"
 
-    # Si queremos que el script espere antes de la siguiente petición
+    # If we want the script to wait before the next request
     if [ ! -z "$SLEEP_TIME" ]; then
         sleep "$SLEEP_TIME"
     fi

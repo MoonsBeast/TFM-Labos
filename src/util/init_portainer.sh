@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Parámetros del usuario
+# User parameters
 USERNAME="admin"
 PASSWORD="adminPortainer"
 
@@ -8,7 +8,7 @@ echo "[+] Installing dependencies..."
 sudo apt install curl jq -y
 
 # Wait for Portainer to be up and running
-echo "[+] Waitin for Portainer to be up and running..."
+echo "[+] Waiting for Portainer to be up and running..."
 until curl -s http://localhost:9000/api/status > /dev/null; do
   sleep 2
 done

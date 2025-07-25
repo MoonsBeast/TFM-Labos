@@ -8,4 +8,9 @@ find = {}
 [project]
 name = "TFM-Labos"
 version = "0.1.0"
-dependencies = ["mkdocs", "mkdocs-material"]
+dependencies = [
+    "mkdocs", 
+    "mkdocs-material", 
+    "mkdocs-minify-plugin",
+    "mkdocs-git-revision-date-localized-plugin"
+]

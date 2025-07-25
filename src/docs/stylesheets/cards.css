@@ -1,0 +1,387 @@
+/* ===========================
+   Card Components Styling
+   =========================== */
+
+/* Hero sections */
+.hero-section {
+    background: linear-gradient(135deg, #1e88e5, #1565c0);
+    color: white;
+    padding: 3rem 2rem;
+    border-radius: 12px;
+    margin: 2rem 0;
+    text-align: center;
+    box-shadow: 0 8px 32px rgba(30, 136, 229, 0.3);
+    position: relative;
+    overflow: hidden;
+}
+
+.hero-section::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+    animation: pulse 4s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); opacity: 0.7; }
+    50% { transform: scale(1.1); opacity: 0.3; }
+}
+
+.hero-description {
+    font-size: 1.2rem;
+    line-height: 1.6;
+    margin: 1.5rem 0;
+    opacity: 0.95;
+    position: relative;
+    z-index: 1;
+}
+
+/* Card grids */
+.objectives-grid,
+.prerequisites-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 2rem;
+    margin: 3rem 0;
+}
+
+/* Enhanced lab cards */
+.lab-card {
+    background: var(--md-default-bg-color);
+    border: 1px solid var(--md-default-fg-color--lightest);
+    border-radius: 12px;
+    padding: 2rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.lab-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 4px;
+    background: linear-gradient(90deg, #1e88e5, #7c4dff);
+    transform: scaleX(0);
+    transition: transform 0.3s ease;
+}
+
+.lab-card:hover::before {
+    transform: scaleX(1);
+}
+
+.lab-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+    border-color: var(--md-primary-fg-color--light);
+}
+
+.lab-card-header {
+    font-size: 1.3rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: var(--md-primary-fg-color);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.lab-card p {
+    color: var(--md-default-fg-color--light);
+    margin-bottom: 1.5rem;
+    line-height: 1.6;
+}
+
+.lab-card ul {
+    margin: 0;
+    padding-left: 1.2rem;
+}
+
+.lab-card li {
+    margin-bottom: 0.5rem;
+    color: var(--md-default-fg-color);
+}
+
+/* Step cards for getting started */
+.getting-started {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    margin: 3rem 0;
+}
+
+.step-card {
+    display: flex;
+    align-items: center;
+    background: var(--md-default-bg-color);
+    border: 1px solid var(--md-default-fg-color--lightest);
+    border-radius: 12px;
+    padding: 2rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.step-card:nth-child(even) {
+    flex-direction: row-reverse;
+}
+
+.step-card::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(30, 136, 229, 0.05), transparent);
+    transition: left 0.6s ease;
+}
+
+.step-card:hover::after {
+    left: 100%;
+}
+
+.step-card:hover {
+    transform: translateX(10px);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+}
+
+.step-card:nth-child(even):hover {
+    transform: translateX(-10px);
+}
+
+.step-number {
+    background: linear-gradient(135deg, #1e88e5, #1565c0);
+    color: white;
+    width: 4rem;
+    height: 4rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.8rem;
+    font-weight: bold;
+    margin: 0 2rem;
+    flex-shrink: 0;
+    box-shadow: 0 4px 12px rgba(30, 136, 229, 0.4);
+    position: relative;
+    z-index: 1;
+}
+
+.step-content {
+    flex: 1;
+}
+
+.step-content h3 {
+    margin: 0 0 0.5rem 0;
+    color: var(--md-primary-fg-color);
+    font-size: 1.4rem;
+}
+
+.step-content p {
+    color: var(--md-default-fg-color--light);
+    margin-bottom: 1rem;
+    line-height: 1.6;
+}
+
+.step-link {
+    color: #7c4dff;
+    text-decoration: none;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: all 0.3s ease;
+}
+
+.step-link:hover {
+    color: #651fff;
+    text-decoration: none;
+    transform: translateX(5px);
+}
+
+/* Tool categories */
+.tools-section {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 2rem;
+    margin: 3rem 0;
+}
+
+.tool-category {
+    background: var(--md-default-bg-color);
+    border: 1px solid var(--md-default-fg-color--lightest);
+    border-radius: 12px;
+    padding: 2rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+}
+
+.tool-category:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+}
+
+.tool-category h3 {
+    margin: 0 0 1.5rem 0;
+    color: var(--md-primary-fg-color);
+    font-size: 1.2rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.tool-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+/* Prerequisite cards */
+.prereq-card {
+    display: flex;
+    background: var(--md-default-bg-color);
+    border: 1px solid var(--md-default-fg-color--lightest);
+    border-radius: 12px;
+    padding: 2rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+}
+
+.prereq-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+}
+
+.prereq-icon {
+    font-size: 3rem;
+    margin-right: 1.5rem;
+    flex-shrink: 0;
+    display: flex;
+    align-items: flex-start;
+}
+
+.prereq-content h3 {
+    margin: 0 0 1rem 0;
+    color: var(--md-primary-fg-color);
+    font-size: 1.3rem;
+}
+
+.prereq-content ul {
+    margin: 0;
+    padding-left: 1.2rem;
+}
+
+.prereq-content li {
+    margin-bottom: 0.5rem;
+    color: var(--md-default-fg-color);
+}
+
+/* Dark mode adjustments */
+[data-md-color-scheme="slate"] .hero-section {
+    background: linear-gradient(135deg, #1976d2, #1565c0);
+    box-shadow: 0 8px 32px rgba(25, 118, 210, 0.4);
+}
+
+[data-md-color-scheme="slate"] .lab-card,
+[data-md-color-scheme="slate"] .step-card,
+[data-md-color-scheme="slate"] .tool-category,
+[data-md-color-scheme="slate"] .prereq-card {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.1);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+[data-md-color-scheme="slate"] .lab-card:hover,
+[data-md-color-scheme="slate"] .step-card:hover,
+[data-md-color-scheme="slate"] .tool-category:hover,
+[data-md-color-scheme="slate"] .prereq-card:hover {
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .hero-section {
+        padding: 2rem 1rem;
+    }
+    
+    .hero-description {
+        font-size: 1rem;
+    }
+    
+    .objectives-grid,
+    .prerequisites-grid {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
+    
+    .step-card,
+    .step-card:nth-child(even) {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .step-number {
+        margin: 0 0 1.5rem 0;
+        width: 3rem;
+        height: 3rem;
+        font-size: 1.5rem;
+    }
+    
+    .step-card:hover,
+    .step-card:nth-child(even):hover {
+        transform: translateY(-4px);
+    }
+    
+    .prereq-card {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .prereq-icon {
+        margin: 0 0 1rem 0;
+        justify-content: center;
+    }
+    
+    .tools-section {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Animation delays for staggered effects */
+.lab-card:nth-child(1) { animation-delay: 0.1s; }
+.lab-card:nth-child(2) { animation-delay: 0.2s; }
+.lab-card:nth-child(3) { animation-delay: 0.3s; }
+
+.step-card:nth-child(1) { animation-delay: 0.1s; }
+.step-card:nth-child(2) { animation-delay: 0.2s; }
+
+/* Accessibility improvements */
+.lab-card:focus-within,
+.step-card:focus-within,
+.tool-category:focus-within {
+    outline: 2px solid var(--md-accent-fg-color);
+    outline-offset: 2px;
+}
+
+/* Reduce motion for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+    .lab-card,
+    .step-card,
+    .tool-category,
+    .prereq-card {
+        transition: none;
+    }
+    
+    .hero-section::before {
+        animation: none;
+    }
+}

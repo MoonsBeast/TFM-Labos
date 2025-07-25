@@ -54,7 +54,31 @@ services:
     networks:
       internal_network:
         ipv4_address: ${REQUESTER_IP}
-  
+
+  kali_attacker:
+    build:
+      context: .
+      dockerfile: ./containers/kali_attacker/Dockerfile
+    image: kali_attacker
+    restart: unless-stopped
+    tty: true
+    stdin_open: true
+    privileged: true
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+      - SYS_ADMIN
+    security_opt:
+      - apparmor:unconfined
+    volumes:
+      - ./containers/kali_attacker/scripts:/scripts
+      - ./containers/kali_attacker/captures:/captures
+    dns:
+      - ${DNS_IP}
+    networks:
+      internal_network:
+        ipv4_address: ${KALI_IP}
+
   portainer:
     image: portainer/portainer-ce:latest
     container_name: portainer
@@ -69,12 +93,10 @@ services:
 volumes:
   portainer_data:
 
-# Definición de la red
+# Network definition - Bridge to allow ARP spoofing
 networks:
   internal_network:
-    driver: macvlan
-    driver_opts:
-      parent: ${PARENT_INTERFACE}
+    driver: bridge
     ipam:
       driver: default
       config:
